@@ -126,9 +126,8 @@ struct ModifyBoundaryData {
   static void apply_linearized(
       gsl::not_null<Scalar<ComplexDataVector>*> field_remote,
       gsl::not_null<Scalar<ComplexDataVector>*> n_dot_field_gradient_remote,
-      gsl::not_null<Scalar<ComplexDataVector>*> field_local,
-      gsl::not_null<Scalar<ComplexDataVector>*> n_dot_field_gradient_local,
-      const Scalar<ComplexDataVector>& avg_field,
+      const Scalar<ComplexDataVector>& field_local,
+      const Scalar<ComplexDataVector>& n_dot_field_gradient_local,
       const DirectionalId<Dim>& mortar_id, const Element<Dim>& element,
       const std::set<size_t>& null_slicing_blocks,
       const elliptic::analytic_data::Background& background);

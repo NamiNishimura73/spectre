@@ -3,6 +3,7 @@
 
 #include "Elliptic/Systems/SelfForce/Scalar/Equations.hpp"
 
+#include <algorithm>
 #include <cstddef>
 
 #include "DataStructures/ComplexDataVector.hpp"
@@ -89,12 +90,10 @@ void ModifyBoundaryData::apply(
 }
 
 void ModifyBoundaryData::apply_linearized(
-    const gsl::not_null<Scalar<ComplexDataVector>*> /*field_remote*/,
+    const gsl::not_null<Scalar<ComplexDataVector>*> field_remote,
     const gsl::not_null<Scalar<ComplexDataVector>*> n_dot_field_gradient_remote,
-    const gsl::not_null<Scalar<ComplexDataVector>*> /*field_local*/,
-    const gsl::not_null<
-        Scalar<ComplexDataVector>*> /*n_dot_field_gradient_local*/,
-    const Scalar<ComplexDataVector>& avg_field,
+    const Scalar<ComplexDataVector>& field_local,
+    const Scalar<ComplexDataVector>& /*n_dot_field_gradient_local*/,
     const DirectionalId<Dim>& mortar_id, const Element<Dim>& element,
     const std::set<size_t>& null_slicing_blocks,
     const elliptic::analytic_data::Background& background) {
@@ -112,7 +111,8 @@ void ModifyBoundaryData::apply_linearized(
   const double omega = circular_orbit.omega();
   const double m_mode_number = circular_orbit.m_mode_number();
   get(*n_dot_field_gradient_remote) -=
-      std::complex<double>(0.0, m_mode_number * omega) * get(avg_field);
+      std::complex<double>(0.0, m_mode_number * omega) *
+      (get(field_local) + get(*field_remote)) * 0.5;
 }
 
 }  // namespace ScalarSelfForce

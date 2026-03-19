@@ -709,35 +709,20 @@ struct DgOperatorImpl<System, Linearized, tmpl::list<PrimalFields...>,
         if constexpr (Linearized and
                       not std::is_same_v<typename System::modify_boundary_data,
                                          void>) {
-          auto jump_field = Variables<tmpl::list<PrimalMortarVars...>>(
-              local_data.field_data
-                  .template extract_subset<tmpl::list<PrimalMortarVars...>>());
-
-          const auto add_jump_contribution = [](auto& lhs, const auto& rhs) {
-            for (size_t i = 0; i < lhs.size(); ++i) {
-              lhs[i] += rhs[i];
-            }
-          };
-
-          EXPAND_PACK_LEFT_TO_RIGHT(add_jump_contribution(
-              get<PrimalMortarVars>(jump_field),
-              get<PrimalMortarVars>(remote_data.field_data)));
-
-          jump_field *= 0.5;
-
+          // Apply a linearized modification to received boundary data.
+          // This allows modifications to depend linearly on the variables
           std::apply(
-              [&remote_data, &local_data, &mortar_id,
-               &jump_field](const auto&... args) {
+              [&rem_data = remote_data, &loc_data = local_data,
+               m_id = mortar_id](const auto&... args) {
                 System::modify_boundary_data::apply_linearized(
                     make_not_null(
-                        &get<PrimalMortarVars>(remote_data.field_data))...,
+                        &get<PrimalMortarVars>(rem_data.field_data))...,
                     make_not_null(&get<::Tags::NormalDotFlux<PrimalMortarVars>>(
-                        remote_data.field_data))...,
-                    make_not_null(
-                        &get<PrimalMortarVars>(local_data.field_data))...,
-                    make_not_null(&get<::Tags::NormalDotFlux<PrimalMortarVars>>(
-                        local_data.field_data))...,
-                    get<PrimalMortarVars>(jump_field)..., mortar_id, args...);
+                        rem_data.field_data))...,
+                    get<PrimalMortarVars>(loc_data.field_data)...,
+                    get<::Tags::NormalDotFlux<PrimalMortarVars>>(
+                        loc_data.field_data)...,
+                    m_id, args...);
               },
               modify_boundary_data_args);
         }
