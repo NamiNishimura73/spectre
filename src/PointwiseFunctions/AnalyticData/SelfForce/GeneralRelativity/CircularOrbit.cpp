@@ -168,7 +168,7 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
   for (size_t i = 0; i < beta.size(); ++i) {
     beta[i] *= -1.;
     gamma_rstar[i] *= -1.;
-    gamma_theta[i] *= -1. / get(alpha);
+    gamma_theta[i] *= -1.;
   }
   // Hyperboloidal slicing
   if (hyperboloidal_slicing_transitions_.has_value()) {

@@ -43,14 +43,15 @@ void add_sources(const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> source,
                  const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar,
                  const tnsr::aaBB<ComplexDataVector, 3>& gamma_theta,
                  const tnsr::aa<ComplexDataVector, 3>& field,
-                 const FluxTensorType& flux) {
+                 const GradTensorType& field_gradient) {
   for (size_t a = 0; a < 4; ++a) {
     for (size_t b = 0; b <= a; ++b) {
       for (size_t c = 0; c < 4; ++c) {
         for (size_t d = 0; d <= c; ++d) {
-          source->get(a, b) += beta.get(a, b, c, d) * field.get(c, d) +
-                               gamma_rstar.get(a, b, c, d) * flux.get(0, c, d) +
-                               gamma_theta.get(a, b, c, d) * flux.get(1, c, d);
+          source->get(a, b) +=
+              beta.get(a, b, c, d) * field.get(c, d) +
+              gamma_rstar.get(a, b, c, d) * field_gradient.get(0, c, d) +
+              gamma_theta.get(a, b, c, d) * field_gradient.get(1, c, d);
         }
       }
     }
@@ -78,8 +79,9 @@ void Sources::apply(
     const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar,
     const tnsr::aaBB<ComplexDataVector, 3>& gamma_theta,
     const tnsr::aa<ComplexDataVector, 3>& field,
-    const GradTensorType& /*field_gradient*/, const FluxTensorType& flux) {
-  add_sources(scalar_equation, beta, gamma_rstar, gamma_theta, field, flux);
+    const GradTensorType& field_gradient, const FluxTensorType& /*flux*/) {
+  add_sources(scalar_equation, beta, gamma_rstar, gamma_theta, field,
+              field_gradient);
 }
 
 void ModifyBoundaryData::apply(
