@@ -32,6 +32,11 @@ Background: &background
       - {{ puncture_position - worldtube_radius }}
       - {{ puncture_position + worldtube_radius }}
       - &t_to_u_transition {{ puncture_position + worldtube_radius + 15 }}
+      # - &v_to_t_transition {{ puncture_position - worldtube_radius - 6 }}
+      # - *v_to_t_transition
+      # - &t_to_u_transition {{ puncture_position + worldtube_radius + 15 }}
+      # - *t_to_u_transition
+
   # NumericData:
   #   Filename: "/Users/nilsvu/Downloads/D2G_m2_a0.600_r8.000.h5"
   #   BlackHoleMass: &bh_mass 1.
@@ -41,6 +46,15 @@ Background: &background
   #   HyperboloidalSlicingTransitions:
   #     - &v_to_t_transition {{ puncture_position - worldtube_radius - 8 }}
   #     - &t_to_u_transition {{ puncture_position + worldtube_radius + 8 }}
+
+# GrSelfForce:
+#   NullSlicingBlocks:
+#     - Block0
+#     - Block4
+#     - Block5
+#     - Block9
+#     - Block10
+#     - Block14
 
 InitialGuess: *background
 
@@ -65,7 +79,7 @@ DomainCreator:
     InitialGridPoints: [{{ P }}, {{ P }}]
     InitialLevels: [ {{ L }}, 0 ]
     Distributions:
-      - [Linear, Linear, Linear, Linear, Inverse]
+      - [Linear, Linear, Linear, Linear,  &outer_shell_distribution Inverse]
       - [Linear, Linear, Linear]
     SingularityPositions:
       - [0., 0., 0., 0., 0.]
@@ -133,13 +147,14 @@ DomainCreator:
       # Angular boundary conditions
       - Angular:
           MModeNumber: *m_mode_number
+      # - None
 
 Amr:
   Verbosity: Quiet
   Criteria:
-    # - RefineAtPuncture
+    - RefineAtPuncture
     - IncreaseResolution
-    # - RefineAtBoundaryY
+    - RefineAtBoundaryY
     # - TruncationError:
     #     VariablesToMonitor: [MMode]
     #     AbsoluteTarget: 1.e-8
@@ -240,6 +255,11 @@ EventsAndTriggersAtIterations:
           InterpolateToMesh: None
           CoordinatesFloatingPointType: Double
           FloatingPointTypes: [Double]
+
+RadiallyCompressedCoordinates:
+  InnerRadius: *t_to_u_transition
+  OuterRadius: *outer_radius
+  Compression: *outer_shell_distribution
 
 BuildMatrix:
   MatrixSubfileName: None

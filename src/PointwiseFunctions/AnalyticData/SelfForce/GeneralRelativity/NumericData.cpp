@@ -155,11 +155,11 @@ NumericData::variables(
     const bool field_is_regularized) const {
   const double black_hole_spin_ = circular_orbit_.black_hole_spin();
   const double black_hole_mass_ = circular_orbit_.black_hole_mass();
-  const double orbital_radius_ = circular_orbit_.orbital_radius();
+  // const double orbital_radius_ = circular_orbit_.orbital_radius();
   const int m_mode_number_ = circular_orbit_.m_mode_number();
   const double a = black_hole_spin_ * black_hole_mass_;
   const double M = black_hole_mass_;
-  const double r_0 = orbital_radius_;
+  // const double r_0 = orbital_radius_;
   const double r_plus = M * (1. + sqrt(1. - square(black_hole_spin_)));
   const double r_minus = M * (1. - sqrt(1. - square(black_hole_spin_)));
   const auto& r_star = get<0>(x);

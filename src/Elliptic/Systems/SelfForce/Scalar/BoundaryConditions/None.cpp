@@ -27,7 +27,7 @@ void None::apply_linearized(
   // Nothing to do
 }
 
-bool operator==(const None& lhs, const None& rhs) { return true; }
+bool operator==(const None& /*lhs*/, const None& /*rhs*/) { return true; }
 
 bool operator!=(const None& lhs, const None& rhs) { return not(lhs == rhs); }
 
