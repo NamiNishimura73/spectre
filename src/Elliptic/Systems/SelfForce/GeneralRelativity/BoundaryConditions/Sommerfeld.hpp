@@ -12,6 +12,7 @@
 #include "Domain/Tags.hpp"
 #include "Elliptic/BoundaryConditions/BoundaryCondition.hpp"
 #include "Elliptic/BoundaryConditions/BoundaryConditionType.hpp"
+#include "Elliptic/Systems/SelfForce/GeneralRelativity/Tags.hpp"
 #include "Options/String.hpp"
 #include "Utilities/Gsl.hpp"
 #include "Utilities/TMPL.hpp"
@@ -110,22 +111,26 @@ class Sommerfeld : public elliptic::BoundaryConditions::BoundaryCondition<2> {
     return {elliptic::BoundaryConditionType::Neumann};
   }
 
-  using argument_tags = tmpl::list<>;
+  using argument_tags = tmpl::list<Tags::Beta, Tags::GammaRstar>;
   using volume_tags = tmpl::list<>;
 
   void apply(
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field,
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_field_gradient,
-      const GradTensorType& deriv_field) const;
+      const GradTensorType& deriv_field,
+      const tnsr::aaBB<ComplexDataVector, 3>& beta,
+      const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const;
 
-  using argument_tags_linearized = tmpl::list<>;
+  using argument_tags_linearized = tmpl::list<Tags::Beta, Tags::GammaRstar>;
   using volume_tags_linearized = tmpl::list<>;
 
   void apply_linearized(
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field_correction,
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*>
           n_dot_field_correction_gradient,
-      const GradTensorType& deriv_field_correction) const;
+      const GradTensorType& deriv_field_correction,
+      const tnsr::aaBB<ComplexDataVector, 3>& beta,
+      const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const;
 
   // NOLINTNEXTLINE
   void pup(PUP::er& p) override;

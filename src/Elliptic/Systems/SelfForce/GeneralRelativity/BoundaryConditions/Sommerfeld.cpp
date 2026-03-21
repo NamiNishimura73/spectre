@@ -3,10 +3,13 @@
 
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/BoundaryConditions/Sommerfeld.hpp"
 
+#include <blaze/Math.h>
+
 #include "DataStructures/ComplexDataVector.hpp"
 #include "DataStructures/DataVector.hpp"
 #include "DataStructures/Tensor/EagerMath/Magnitude.hpp"
 #include "DataStructures/Tensor/Tensor.hpp"
+#include "Parallel/Printf/Printf.hpp"
 #include "Utilities/Gsl.hpp"
 
 namespace GrSelfForce::BoundaryConditions {
@@ -32,12 +35,48 @@ Sommerfeld::get_clone() const {
 void Sommerfeld::apply(
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field,
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_field_gradient,
-    const GradTensorType& /*deriv_field*/) const {
+    const GradTensorType& /*deriv_field*/,
+    const tnsr::aaBB<ComplexDataVector, 3>& beta,
+    const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const {
   if (hyperboloidal_slicing_) {
     if (order_ == 1) {
       for (size_t i = 0; i < field->size(); ++i) {
         (*n_dot_field_gradient)[i] = 0.;
       }
+    } else if (order_ == 2) {
+      static bool has_printed = false;
+      if (not has_printed) {
+        printf("---------- 2nd order BC ----------\n");
+        has_printed = true;
+      }
+      using TensorStruct = std::decay_t<decltype(*field)>::structure;
+      const size_t n_points = field->begin()->size();
+      for (size_t i = 0; i < n_points; ++i) {
+        blaze::StaticVector<std::complex<double>, 10> b_local(0.0);
+        blaze::StaticMatrix<std::complex<double>, 10, 10> A_local(0.0);
+
+        for (size_t a = 0; a < 4; ++a) {
+          for (size_t b = 0; b <= a; ++b) {
+            const size_t row = TensorStruct::get_storage_index(a, b);
+            for (size_t c = 0; c < 4; ++c) {
+              for (size_t d = 0; d <= c; ++d) {
+                const size_t col = TensorStruct::get_storage_index(c, d);
+                b_local[row] -= beta.get(a, b, c, d)[i] * field->get(c, d)[i];
+                A_local(row, col) = gamma_rstar.get(a, b, c, d)[i];
+              }
+            }
+          }
+        }
+        blaze::StaticVector<std::complex<double>, 10> grad_vec =
+            blaze::solve(A_local, b_local);
+        for (size_t a = 0; a < 4; ++a) {
+          for (size_t b = 0; b <= a; ++b) {
+            const size_t row = TensorStruct::get_storage_index(a, b);
+            n_dot_field_gradient->get(a, b)[i] = grad_vec[row];
+          }
+        }
+      }
+
     } else {
       ERROR("Order " << order_
                      << " not implemented for Sommerfeld boundary condition "
@@ -64,9 +103,11 @@ void Sommerfeld::apply_linearized(
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field_correction,
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*>
         n_dot_field_correction_gradient,
-    const GradTensorType& deriv_field_correction) const {
+    const GradTensorType& deriv_field_correction,
+    const tnsr::aaBB<ComplexDataVector, 3>& beta,
+    const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const {
   apply(field_correction, n_dot_field_correction_gradient,
-        deriv_field_correction);
+        deriv_field_correction, beta, gamma_rstar);
 }
 
 void Sommerfeld::pup(PUP::er& p) {
