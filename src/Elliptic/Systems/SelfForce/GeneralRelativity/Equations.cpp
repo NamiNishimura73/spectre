@@ -15,25 +15,26 @@
 namespace GrSelfForce {
 
 void fluxes(const gsl::not_null<FluxTensorType*> flux,
-            const Scalar<ComplexDataVector>& alpha,
+            const tnsr::I<ComplexDataVector, 2>& alpha,
             const GradTensorType& field_gradient) {
   for (size_t a = 0; a < 4; ++a) {
     for (size_t b = 0; b <= a; ++b) {
-      flux->get(0, a, b) = field_gradient.get(0, a, b);
-      flux->get(1, a, b) = get(alpha) * field_gradient.get(1, a, b);
+      flux->get(0, a, b) = get<0>(alpha) * field_gradient.get(0, a, b);
+      flux->get(1, a, b) = get<1>(alpha) * field_gradient.get(1, a, b);
     }
   }
 }
 
 void fluxes_on_face(const gsl::not_null<FluxTensorType*> flux,
-                    const Scalar<ComplexDataVector>& alpha,
+                    const tnsr::I<ComplexDataVector, 2>& alpha,
                     const tnsr::I<DataVector, 2>& face_normal_vector,
                     const tnsr::aa<ComplexDataVector, 3>& field) {
   for (size_t a = 0; a < 4; ++a) {
     for (size_t b = 0; b <= a; ++b) {
-      flux->get(0, a, b) = get<0>(face_normal_vector) * field.get(a, b);
+      flux->get(0, a, b) =
+          get<0>(alpha) * get<0>(face_normal_vector) * field.get(a, b);
       flux->get(1, a, b) =
-          get(alpha) * get<1>(face_normal_vector) * field.get(a, b);
+          get<1>(alpha) * get<1>(face_normal_vector) * field.get(a, b);
     }
   }
 }
@@ -59,14 +60,14 @@ void add_sources(const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> source,
 }
 
 void Fluxes::apply(const gsl::not_null<FluxTensorType*> flux,
-                   const Scalar<ComplexDataVector>& alpha,
+                   const tnsr::I<ComplexDataVector, 2>& alpha,
                    const tnsr::aa<ComplexDataVector, 3>& /*field*/,
                    const GradTensorType& field_gradient) {
   fluxes(flux, alpha, field_gradient);
 }
 
 void Fluxes::apply(const gsl::not_null<FluxTensorType*> flux,
-                   const Scalar<ComplexDataVector>& alpha,
+                   const tnsr::I<ComplexDataVector, 2>& alpha,
                    const tnsr::i<DataVector, 2>& /*face_normal*/,
                    const tnsr::I<DataVector, 2>& face_normal_vector,
                    const tnsr::aa<ComplexDataVector, 3>& field) {

@@ -123,7 +123,16 @@ class ObserveFlux : public Event {
       const auto& x = get<domain::Tags::Faces<
           2, domain::Tags::Coordinates<2, Frame::Inertial>>>(box)
                           .at(direction);
-      const auto& sin_theta = sin(get<1>(x));
+      const bool penetrating_horizon = circular_orbit.penetrating_horizon();
+      DataVector sin_theta;
+      const size_t num_face_pts = get<0>(x).size();
+      DataVector integrand_multiplier{num_face_pts};
+      if (penetrating_horizon) {
+        integrand_multiplier = 1.0;
+      } else {
+        sin_theta = sin(get<1>(x));
+        integrand_multiplier = sin_theta;
+      }
       energy_flux =
           square(m_mode * omega) * 0.03125 *
           definite_integral(
@@ -132,10 +141,10 @@ class ObserveFlux : public Event {
                    square(abs(get<3, 3>(field_on_face))) -
                    get<2, 2>(field_on_face) * conj(get<3, 3>(field_on_face)) -
                    conj(get<2, 2>(field_on_face)) * get<3, 3>(field_on_face)) *
-                  get(face_jacobian) * sin_theta,
+                  get(face_jacobian) * integrand_multiplier,
               mesh.slice_away(0));
-      surface_area =
-          definite_integral(sin_theta * get(face_jacobian), mesh.slice_away(0));
+      surface_area = definite_integral(
+          integrand_multiplier * get(face_jacobian), mesh.slice_away(0));
     } else {
       energy_flux = 0.0;
       surface_area = 0.0;

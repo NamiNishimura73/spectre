@@ -78,9 +78,17 @@ class NumericData : public elliptic::analytic_data::Background,
         "points.";
     using type = std::array<double, 2>;
   };
+  struct PenetratingHorizon {
+    static constexpr Options::String help =
+        "If 'False', use tortoise radial coordinate where the Kerr horizon is "
+        "at negative infinity. If 'True', use Boyer-Lindquist radial "
+        "coordinate where the Kerr horizon is at r_+.";
+    using type = bool;
+  };
   using options =
       tmpl::list<Filename, BlackHoleMass, BlackHoleSpin, OrbitalRadius,
-                 MModeNumber, HyperboloidalSlicingTransitions>;
+                 MModeNumber, HyperboloidalSlicingTransitions,
+                 PenetratingHorizon>;
   static constexpr Options::String help =
       "Numeric data for the effective source and singular field";
 
@@ -93,7 +101,8 @@ class NumericData : public elliptic::analytic_data::Background,
 
   NumericData(std::string filename, double black_hole_mass,
               double black_hole_spin, double orbital_radius, int m_mode_number,
-              std::array<double, 2> hyperboloidal_slicing_transitions);
+              std::array<double, 2> hyperboloidal_slicing_transitions,
+              bool penetrating_horizon);
 
   explicit NumericData(CkMigrateMessage* m);
   using PUP::able::register_constructor;

@@ -77,8 +77,16 @@ class CircularOrbit : public elliptic::analytic_data::Background,
         "the second and third points.";
     using type = Options::Auto<std::array<double, 4>, Options::AutoLabel::None>;
   };
+  struct PenetratingHorizon {
+    static constexpr Options::String help =
+        "If 'False', use tortoise radial coordinate where the Kerr horizon is "
+        "at negative infinity. If 'True', use Boyer-Lindquist radial "
+        "coordinate where the Kerr horizon is at r_+.";
+    using type = bool;
+  };
   using options = tmpl::list<BlackHoleMass, BlackHoleSpin, OrbitalRadius,
-                             MModeNumber, HyperboloidalSlicingTransitions>;
+                             MModeNumber, HyperboloidalSlicingTransitions,
+                             PenetratingHorizon>;
   static constexpr Options::String help =
       "Quasicircular orbit of a point mass in Kerr spacetime";
 
@@ -92,7 +100,8 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   CircularOrbit(double black_hole_mass, double black_hole_spin,
                 double orbital_radius, int m_mode_number,
                 const std::optional<std::array<double, 4>>&
-                    hyperboloidal_slicing_transitions);
+                    hyperboloidal_slicing_transitions,
+                bool penetrating_horizon);
 
   explicit CircularOrbit(CkMigrateMessage* m);
   using PUP::able::register_constructor;
@@ -108,6 +117,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   hyperboloidal_slicing_transitions() const {
     return hyperboloidal_slicing_transitions_;
   }
+  bool penetrating_horizon() const { return penetrating_horizon_; }
 
   using background_tags =
       tmpl::list<Tags::Alpha, Tags::Beta, Tags::GammaRstar, Tags::GammaTheta>;
@@ -149,6 +159,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   double orbital_radius_{std::numeric_limits<double>::signaling_NaN()};
   int m_mode_number_{};
   std::optional<std::array<double, 4>> hyperboloidal_slicing_transitions_{};
+  bool penetrating_horizon_{false};
 };
 
 bool operator!=(const CircularOrbit& lhs, const CircularOrbit& rhs);
