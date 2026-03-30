@@ -83,7 +83,8 @@ struct Metavariables {
 
   // Collect all items to store in the cache.
   using const_global_cache_tags =
-      tmpl::list<domain::Tags::RadiallyCompressedCoordinatesOptions>;
+      tmpl::list<domain::Tags::RadiallyCompressedCoordinatesOptions,
+                 LinearSolver::multigrid::Tags::PunctureWeight>;
 
   struct factory_creation
       : tt::ConformsTo<Options::protocols::FactoryCreation> {
