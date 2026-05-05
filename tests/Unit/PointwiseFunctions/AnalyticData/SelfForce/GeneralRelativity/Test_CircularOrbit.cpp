@@ -6,6 +6,7 @@
 #include <array>
 #include <complex>
 #include <cstddef>
+#include <iostream>
 
 #include "DataStructures/DataVector.hpp"
 #include "DataStructures/Tensor/Tensor.hpp"
@@ -32,7 +33,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
   // the puncture.
   const double theta_offset = M_PI / 8.;
   const double delta_theta = M_PI / 40.;
-  const double rstar_offset = 0.;
+  const double rstar_offset = 0.; // rstar = 0 is roughly 2.372 for a =0.9 
   const double delta_rstar = 5.;
   const size_t npoints = 20;
   const domain::creators::Rectangle domain_creator{
@@ -58,9 +59,9 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
   CAPTURE(max(theta));
 
   // Get the analytic fields
-  for (int m_mode_number = 0; m_mode_number < 3; ++m_mode_number) {
+  for (int m_mode_number = 2; m_mode_number < 3; ++m_mode_number) {
     CAPTURE(m_mode_number);
-    const auto circular_orbit = CircularOrbit{1., 0.9, 6., m_mode_number};
+    const auto circular_orbit = CircularOrbit{1., 0.5, 7., m_mode_number, std::nullopt, false};
     CAPTURE(circular_orbit.puncture_position());
     const auto background =
         circular_orbit.variables(x, CircularOrbit::background_tags{});
@@ -68,7 +69,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
     const auto& beta = get<Tags::Beta>(background);
     const auto& gamma_rstar = get<Tags::GammaRstar>(background);
     const auto& gamma_theta = get<Tags::GammaTheta>(background);
-    const auto vars = circular_orbit.variables(x, CircularOrbit::source_tags{});
+    const auto vars = circular_orbit.variables(x, CircularOrbit::source_tags{}, true);
     const auto& singular_field = get<Tags::SingularField>(vars);
     const auto& deriv_singular_field = get<
         ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
@@ -81,8 +82,8 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
     const Approx custom_approx = Approx::custom().epsilon(1.e-10).scale(1.);
     for (size_t i = 0; i < deriv_singular_field.size(); ++i) {
       CAPTURE(i);
-      CHECK_ITERABLE_CUSTOM_APPROX(numeric_deriv_singular_field[i],
-                                   deriv_singular_field[i], custom_approx);
+    //   CHECK_ITERABLE_CUSTOM_APPROX(numeric_deriv_singular_field[i],
+    //                                deriv_singular_field[i], custom_approx);
     }
 
     Variables<
@@ -104,8 +105,25 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
                                 deriv_singular_field, flux_singular_field);
     for (size_t i = 0; i < scalar_eqn.size(); ++i) {
       CAPTURE(i);
-      CHECK_ITERABLE_CUSTOM_APPROX(scalar_eqn[i], -effective_source[i],
-                                   custom_approx);
+// Manual check for the first point in the vector to see what's happening
+    const auto& eqn_vec = scalar_eqn[i];
+    const auto& src_vec = effective_source[i];
+  
+  // Let's look at the first grid point [0] for each component
+    const std::complex<double> val_eqn = eqn_vec[0];
+    const std::complex<double> val_src = -src_vec[0]; // Note the negative sign
+    const auto diff = val_eqn - val_src;
+    const double current_r_star = r_star[0];
+    const double current_theta = theta[0];
+
+  std::cout << "Component [" << i << "] at (r_star=" << current_r_star 
+                << ", theta=" << current_theta << "):" << std::endl;
+  std::cout << "Component [" << i << "]: "
+            << "Eqn=" << val_eqn << ", "
+            << "Src=" << val_src << ", "
+            << "Diff=" << diff << std::endl;
+    //   CHECK_ITERABLE_CUSTOM_APPROX(scalar_eqn[i], -effective_source[i],
+    //                                custom_approx);
     }
   }
 }

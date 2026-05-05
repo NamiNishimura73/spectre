@@ -8,6 +8,7 @@
 #include <limits>
 #include <optional>
 #include <pup.h>
+#include <stdio.h>
 #include <vector>
 
 #include "DataStructures/DataBox/Prefixes.hpp"

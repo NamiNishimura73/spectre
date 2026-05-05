@@ -62,7 +62,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
     CAPTURE(m_mode_number);
     const auto circular_orbit =
         NumericData{"/Users/nilsvu/Downloads/D2G_m2_a0.600_r8.000.h5", 1., 0.6,
-                    8., m_mode_number};
+                    8., m_mode_number, std::array<double, 2>{{0.0, 0.0}}, false};
     CAPTURE(circular_orbit.puncture_position());
     const auto background =
         circular_orbit.variables(x, NumericData::background_tags{});
@@ -70,7 +70,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
     const auto& beta = get<Tags::Beta>(background);
     const auto& gamma_rstar = get<Tags::GammaRstar>(background);
     const auto& gamma_theta = get<Tags::GammaTheta>(background);
-    const auto vars = circular_orbit.variables(x, NumericData::source_tags{});
+    const auto vars = circular_orbit.variables(x, NumericData::source_tags{}, true);
     const auto& singular_field = get<Tags::SingularField>(vars);
     const auto& deriv_singular_field = get<
         ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(

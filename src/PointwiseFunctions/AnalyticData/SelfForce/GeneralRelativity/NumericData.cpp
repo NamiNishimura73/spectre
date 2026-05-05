@@ -5,7 +5,8 @@
 
 #include <complex>
 #include <cstddef>
-#include <effsource_gr.hpp>
+// #include <effsource_gr.hpp>
+#include <effsource_comoving.hpp>
 #include <utility>
 
 #include "DataStructures/ComplexDataVector.hpp"
