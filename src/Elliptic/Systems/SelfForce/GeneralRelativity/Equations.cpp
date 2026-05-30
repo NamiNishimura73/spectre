@@ -9,7 +9,9 @@
 #include "DataStructures/ComplexDataVector.hpp"
 #include "DataStructures/DataVector.hpp"
 #include "DataStructures/Tensor/Tensor.hpp"
+#include "Parallel/Printf/Printf.hpp"
 #include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/CircularOrbit.hpp"
+#include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/NumericData.hpp"
 #include "Utilities/Algorithm.hpp"
 
 namespace GrSelfForce {
@@ -91,7 +93,8 @@ void ModifyBoundaryData::apply(
     const DirectionalId<Dim>& mortar_id, const bool field_is_regularized,
     const DirectionalIdMap<Dim, bool>& neighbors_field_is_regularized,
     const DirectionalIdMap<Dim, typename singular_vars_on_mortars_tag::type>&
-        singular_vars_on_mortars) {
+        singular_vars_on_mortars,
+    const DirectionalIdMap<Dim, tnsr::I<DataVector, Dim>>& all_mortar_coords) {
   if (field_is_regularized == neighbors_field_is_regularized.at(mortar_id)) {
     // Both elements solve for the same field. Nothing to do.
     return;
@@ -104,6 +107,30 @@ void ModifyBoundaryData::apply(
   const auto& singular_field_n_dot_flux =
       get<::Tags::NormalDotFlux<Tags::SingularField>>(
           singular_vars_on_mortars.at(mortar_id));
+  // DEBUG: print singular field and n_dot_flux at worldtube boundary
+  // {
+  //   static size_t debug_call_count = 0;
+  //   if (debug_call_count < 4) {
+  //     ++debug_call_count;
+  //     const auto& sf_tt = singular_field.get(0, 0);
+  //     const auto& ndF_tt = singular_field_n_dot_flux.get(0, 0);
+  //     const auto& coords = all_mortar_coords.at(mortar_id);
+  //     Parallel::printf(
+  //         "ModifyBoundaryData [#%zu] field_is_regularized=%s sign=%.0f "
+  //         "npts=%zu\n"
+  //         "  coords: r[0]=%.6e theta[0]=%.6e  r[1]=%.6e theta[1]=%.6e\n"
+  //         "  sf_tt[0]=(%.6e,%.6e) sf_tt[1]=(%.6e,%.6e)\n"
+  //         "  ndF_tt[0]=(%.6e,%.6e) ndF_tt[1]=(%.6e,%.6e)\n",
+  //         debug_call_count, field_is_regularized ? "T" : "F", sign,
+  //         sf_tt.size(), coords.get(0)[0], coords.get(1)[0],
+  //         coords.size() > 1 ? coords.get(0)[1] : 0.,
+  //         coords.size() > 1 ? coords.get(1)[1] : 0., real(sf_tt[0]),
+  //         imag(sf_tt[0]), sf_tt.size() > 1 ? real(sf_tt[1]) : 0.,
+  //         sf_tt.size() > 1 ? imag(sf_tt[1]) : 0., real(ndF_tt[0]),
+  //         imag(ndF_tt[0]), ndF_tt.size() > 1 ? real(ndF_tt[1]) : 0.,
+  //         ndF_tt.size() > 1 ? imag(ndF_tt[1]) : 0.);
+  //   }
+  // }
   for (size_t i = 0; i < singular_field.size(); ++i) {
     (*field)[i] += sign * singular_field[i];
     (*n_dot_flux)[i] -= sign * singular_field_n_dot_flux[i];
@@ -127,8 +154,17 @@ void ModifyBoundaryData::apply_linearized(
   // Apply the jump in the field gradient across the boundary to handle
   // vtu-slicing. The signs are all the same (on both sides of the boundary and
   // at both transition points).
-  const auto& circular_orbit =
-      dynamic_cast<const GrSelfForce::AnalyticData::CircularOrbit&>(background);
+  const auto* co_ptr =
+      dynamic_cast<const GrSelfForce::AnalyticData::CircularOrbit*>(
+          &background);
+  const auto* nd_ptr =
+      co_ptr ? nullptr
+             : dynamic_cast<const GrSelfForce::AnalyticData::NumericData*>(
+                   &background);
+  ASSERT(co_ptr != nullptr or nd_ptr != nullptr,
+         "Background must be CircularOrbit or NumericData");
+  const GrSelfForce::AnalyticData::CircularOrbit& circular_orbit =
+      co_ptr ? *co_ptr : nd_ptr->circular_orbit();
   const double omega = circular_orbit.omega();
   const double m_mode_number = circular_orbit.m_mode_number();
   for (size_t j = 0; j < n_dot_field_gradient_remote->size(); ++j) {

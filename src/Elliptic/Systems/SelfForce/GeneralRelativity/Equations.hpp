@@ -121,10 +121,11 @@ struct ModifyBoundaryData {
                                    ::Tags::NormalDotFlux<Tags::SingularField>>>;
 
  public:
-  using argument_tags =
-      tmpl::list<Tags::FieldIsRegularized,
-                 ::Tags::Mortars<Tags::FieldIsRegularized, Dim>,
-                 ::Tags::Mortars<singular_vars_on_mortars_tag, Dim>>;
+  using argument_tags = tmpl::list<
+      Tags::FieldIsRegularized, ::Tags::Mortars<Tags::FieldIsRegularized, Dim>,
+      ::Tags::Mortars<singular_vars_on_mortars_tag, Dim>,
+      ::Tags::Mortars<domain::Tags::Coordinates<Dim, Frame::Inertial>, Dim>>;
+
  public:
   using argument_tags_linearized = tmpl::list<
       domain::Tags::Element<Dim>, Tags::NullSlicingBlocks,
@@ -138,7 +139,8 @@ struct ModifyBoundaryData {
       const DirectionalId<Dim>& mortar_id, bool field_is_regularized,
       const DirectionalIdMap<Dim, bool>& neighbors_field_is_regularized,
       const DirectionalIdMap<Dim, typename singular_vars_on_mortars_tag::type>&
-          singular_vars_on_mortars);
+          singular_vars_on_mortars,
+      const DirectionalIdMap<Dim, tnsr::I<DataVector, Dim>>& all_mortar_coords);
   static void apply_linearized(
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field_remote,
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*>

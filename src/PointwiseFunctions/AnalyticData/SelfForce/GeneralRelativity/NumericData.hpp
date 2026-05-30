@@ -26,20 +26,35 @@
 namespace GrSelfForce::AnalyticData {
 
 struct Interpolator {
-  std::vector<double> r_star;
+  std::vector<double> r;
   std::vector<double> theta;
   std::vector<double> flat_data;
   intrp::UniformMultiLinearSpanInterpolation<2, 20> interpolator;
 
   Interpolator() = default;
-  Interpolator(std::vector<double>&& r_star_in, std::vector<double>&& theta_in,
+  Interpolator(std::vector<double>&& r_in, std::vector<double>&& theta_in,
                std::vector<double>&& flat_data_in)
-      : r_star(std::move(r_star_in)),
+      : r(std::move(r_in)),
         theta(std::move(theta_in)),
         flat_data(std::move(flat_data_in)),
-        interpolator({gsl::make_span(r_star), gsl::make_span(theta)},
+        interpolator({gsl::make_span(r), gsl::make_span(theta)},
                      gsl::make_span(flat_data),
-                     Index<2>{r_star.size(), theta.size()}) {}
+                     Index<2>{r.size(), theta.size()}) {}
+};
+
+struct Interpolator1D {
+  std::vector<double> coord;   // r for Top/Bottom, theta for Left/Right
+  std::vector<double> flat_data;
+  intrp::UniformMultiLinearSpanInterpolation<1, 40> interpolator;
+
+  Interpolator1D() = default;
+  Interpolator1D(std::vector<double>&& coord_in,
+                 std::vector<double>&& flat_data_in)
+      : coord(std::move(coord_in)),
+        flat_data(std::move(flat_data_in)),
+        interpolator({gsl::make_span(coord)},
+                     gsl::make_span(flat_data),
+                     Index<1>{coord.size()}) {}
 };
 
 class NumericData : public elliptic::analytic_data::Background,
@@ -72,11 +87,10 @@ class NumericData : public elliptic::analytic_data::Background,
   };
   struct HyperboloidalSlicingTransitions {
     static constexpr Options::String help =
-        "Transition points for "
-        "the boost function. The boost function transitions from -1 to 0 "
-        "at the first point and from 0 to 1 at the second "
-        "points.";
-    using type = std::array<double, 2>;
+        "Transition points for the boost function. Four values: start and end "
+        "of the first transition (from -1 to 0), then start and end of the "
+        "second transition (from 0 to 1).";
+    using type = std::array<double, 4>;
   };
   struct PenetratingHorizon {
     static constexpr Options::String help =
@@ -85,10 +99,16 @@ class NumericData : public elliptic::analytic_data::Background,
         "coordinate where the Kerr horizon is at r_+.";
     using type = bool;
   };
+  struct Pi_2_Rotation {
+    static constexpr Options::String help =
+        "If 'True', multiply h5 data by 2 pi * rotation factor "
+        "to match with Barry's puncture convention.";
+    using type = bool;
+  };
   using options =
       tmpl::list<Filename, BlackHoleMass, BlackHoleSpin, OrbitalRadius,
                  MModeNumber, HyperboloidalSlicingTransitions,
-                 PenetratingHorizon>;
+                 PenetratingHorizon, Pi_2_Rotation>;
   static constexpr Options::String help =
       "Numeric data for the effective source and singular field";
 
@@ -101,14 +121,15 @@ class NumericData : public elliptic::analytic_data::Background,
 
   NumericData(std::string filename, double black_hole_mass,
               double black_hole_spin, double orbital_radius, int m_mode_number,
-              std::array<double, 2> hyperboloidal_slicing_transitions,
-              bool penetrating_horizon);
+              std::array<double, 4> hyperboloidal_slicing_transitions,
+              bool penetrating_horizon, bool pi_2_rotation);
 
   explicit NumericData(CkMigrateMessage* m);
   using PUP::able::register_constructor;
   WRAPPED_PUPable_decl_template(NumericData);
 
   tnsr::I<double, 2> puncture_position() const;
+  const CircularOrbit& circular_orbit() const { return circular_orbit_; }
 
   using background_tags =
       tmpl::list<Tags::Alpha, Tags::Beta, Tags::GammaRstar, Tags::GammaTheta>;
@@ -147,7 +168,9 @@ class NumericData : public elliptic::analytic_data::Background,
 
   std::string filename_;
   std::array<Interpolator, 4> interpolators_;
+  std::array<Interpolator1D, 4> boundary_interpolators_;
   CircularOrbit circular_orbit_;
+  bool pi_2_rotation_;
 };
 
 bool operator!=(const NumericData& lhs, const NumericData& rhs);

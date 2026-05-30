@@ -47,6 +47,7 @@
 #include "Utilities/OptionalHelpers.hpp"
 #include "Utilities/PrettyType.hpp"
 #include "Utilities/Serialization/CharmPupable.hpp"
+#include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/NumericData.hpp"
 #include "Utilities/TMPL.hpp"
 
 namespace GrSelfForce::Events {
@@ -104,8 +105,15 @@ class ObserveFlux : public Event {
     if (element.external_boundaries().contains(direction)) {
       // Get parameters
       const auto& background = get<BackgroundTag>(box);
-      const auto& circular_orbit =
-          dynamic_cast<const AnalyticData::CircularOrbit&>(background);
+      const auto* co_ptr =
+          dynamic_cast<const AnalyticData::CircularOrbit*>(&background);
+      const auto* nd_ptr =
+          co_ptr ? nullptr
+                 : dynamic_cast<const AnalyticData::NumericData*>(&background);
+      ASSERT(co_ptr != nullptr or nd_ptr != nullptr,
+             "Background must be CircularOrbit or NumericData");
+      const AnalyticData::CircularOrbit& circular_orbit =
+          co_ptr ? *co_ptr : nd_ptr->circular_orbit();
       const double r0 = circular_orbit.orbital_radius();
       const double M = circular_orbit.black_hole_mass();
       const double spin = circular_orbit.black_hole_spin();

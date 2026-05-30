@@ -45,6 +45,7 @@
 #include "Utilities/OptionalHelpers.hpp"
 #include "Utilities/PrettyType.hpp"
 #include "Utilities/Serialization/CharmPupable.hpp"
+#include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/NumericData.hpp"
 #include "Utilities/TMPL.hpp"
 
 namespace GrSelfForce::Events {
@@ -82,8 +83,15 @@ class ObserveRedshift : public Event {
       return;
     }
     const auto& background = get<BackgroundTag>(box);
-    const auto& circular_orbit =
-        dynamic_cast<const AnalyticData::CircularOrbit&>(background);
+    const auto* co_ptr =
+        dynamic_cast<const AnalyticData::CircularOrbit*>(&background);
+    const auto* nd_ptr =
+        co_ptr ? nullptr
+               : dynamic_cast<const AnalyticData::NumericData*>(&background);
+    ASSERT(co_ptr != nullptr or nd_ptr != nullptr,
+           "Background must be CircularOrbit or NumericData");
+    const AnalyticData::CircularOrbit& circular_orbit =
+        co_ptr ? *co_ptr : nd_ptr->circular_orbit();
     // Get element-logical coords of puncture
     const auto& domain = get<domain::Tags::Domain<2>>(box);
     const auto puncture_position = circular_orbit.puncture_position();

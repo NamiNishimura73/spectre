@@ -15,6 +15,7 @@
 #include "DataStructures/Tensor/EagerMath/Magnitude.hpp"
 #include "DataStructures/Tensor/Tensor.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Tags.hpp"
+#include "Parallel/Printf/Printf.hpp"
 #include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/CircularOrbitCoeffs.hpp"
 #include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/CircularOrbitConvertEffsource.hpp"
 #include "PointwiseFunctions/GeneralRelativity/TortoiseCoordinates.hpp"
@@ -338,7 +339,7 @@ CircularOrbit::variables(
   const double M = black_hole_mass_;
   const double r_0 = orbital_radius_;
   const double r_plus = M * (1. + sqrt(1. - square(black_hole_spin_)));
-  const double r_minus = M * (1. - sqrt(1. - square(black_hole_spin_)));
+  // const double r_minus = M * (1. - sqrt(1. - square(black_hole_spin_)));
   {
     // Initialize effsource
     effsource_init(M, a);
@@ -347,14 +348,6 @@ CircularOrbit::variables(
     xp.r = r_0;
     xp.theta = M_PI_2;
     xp.phi = 0;
-    // Circular equatorial orbit, as given in the EffectiveSource example
-    // const double e = ((r_0 - 2.0 * M) * sqrt(M * r_0) + a * M) /
-    //                  (sqrt(M * r_0) * sqrt(r_0 * r_0 - 3.0 * M * r_0 +
-    //                                        2.0 * a * sqrt(M * r_0)));
-    // const double l = (M * (a * a + r_0 * r_0 - 2.0 * a * sqrt(M * r_0))) /
-    //                  (sqrt(M * r_0) * sqrt(r_0 * r_0 - 3.0 * M * r_0 +
-    //                                        2.0 * a * sqrt(M * r_0)));
-    // effsource_set_particle(&xp, e, l, 0.);
     effsource_set_particle(xp.r);
   }
   const auto& r_star_or_r = get<0>(x);
@@ -395,13 +388,13 @@ CircularOrbit::variables(
     cos_theta = cos(theta);
   }
 
-  const DataVector delta = r_minus_r_plus * (r - r_minus);
-  const DataVector r_sq_plus_a_sq = square(r) + square(a);
-  const DataVector r_sq_plus_a_sq_sq = square(r_sq_plus_a_sq);
-  const DataVector delta_phi = m_mode_number_ * a / (r_plus - r_minus) *
-                               log((r - r_plus) / (r - r_minus));
-  const ComplexDataVector rotation =
-      cos(delta_phi) - std::complex<double>(0., 1.) * sin(delta_phi);
+  // const DataVector delta = r_minus_r_plus * (r - r_minus);
+  // const DataVector r_sq_plus_a_sq = square(r) + square(a);
+  // const DataVector r_sq_plus_a_sq_sq = square(r_sq_plus_a_sq);
+  // const DataVector delta_phi = m_mode_number_ * a / (r_plus - r_minus) *
+  //                              log((r - r_plus) / (r - r_minus));
+  // const ComplexDataVector rotation =
+  //     cos(delta_phi) - std::complex<double>(0., 1.) * sin(delta_phi);
   get(get<Tags::BoyerLindquistRadius>(result)) = r;
   tnsr::aa<ComplexDataVector, 3>& effective_source =
       get<::Tags::FixedSource<Tags::MMode>>(result);
@@ -533,6 +526,44 @@ CircularOrbit::variables(
       }
     }
   }
+  // DEBUG: evaluate Seff at fixed reference point (r=8, theta=π/2)
+  // so the output is directly comparable with NumericData at the same location.
+  // {
+  //   static bool printed_ref = false;
+  //   if (not printed_ref and field_is_regularized) {
+  //     printed_ref = true;
+  //     const double r_ref = 7.8;
+  //     const double theta_ref = M_PI_2 - 0.02;
+  //     coordinate x_ref{};
+  //     x_ref.t = 0.;
+  //     x_ref.r = r_ref;
+  //     x_ref.theta = theta_ref;
+  //     x_ref.phi = 0.;
+  //     std::array<double, 10> hS_re_ref{}, hS_im_ref{};
+  //     std::array<double, 10> dr_re_ref{}, dr_im_ref{}, dth_re_ref{},
+  //         dth_im_ref{};
+  //     std::array<double, 10> dph_re_ref{}, dph_im_ref{}, dt_re_ref{},
+  //         dt_im_ref{};
+  //     std::array<double, 10> src_re_ref{}, src_im_ref{};
+  //     std::array<double, 10> conv_re_ref{}, conv_im_ref{};
+  //     effsource_calc_m(m_mode_number_, &x_ref, hS_re_ref.data(),
+  //                      hS_im_ref.data(), dr_re_ref.data(), dr_im_ref.data(),
+  //                      dth_re_ref.data(), dth_im_ref.data(),
+  //                      dph_re_ref.data(), dph_im_ref.data(),
+  //                      dt_re_ref.data(), dt_im_ref.data(), src_re_ref.data(),
+  //                      src_im_ref.data());
+  //     detail::convert_effsource_Seff_vr(m_mode_number_, a, r_ref,
+  //                                       cos(theta_ref), src_re_ref,
+  //                                       src_im_ref, conv_re_ref,
+  //                                       conv_im_ref);
+  //     const size_t comp_tt = tnsr::aa<ComplexDataVector,
+  //     3>::get_storage_index(
+  //         std::array<size_t, 2>{{0, 0}});
+  //     Parallel::printf(
+  //         "CircularOrbit Seff @ r=7.8 theta=pi/2-0.02: eff_tt=(%.8e,%.8e)\n",
+  //         conv_re_ref[comp_tt], conv_im_ref[comp_tt]);
+  //   }
+  // }
   return result;
 }
 

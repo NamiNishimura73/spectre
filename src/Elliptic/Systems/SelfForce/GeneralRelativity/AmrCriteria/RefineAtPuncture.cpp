@@ -12,6 +12,7 @@
 #include "Domain/Domain.hpp"
 #include "Domain/ElementLogicalCoordinates.hpp"
 #include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/CircularOrbit.hpp"
+#include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/NumericData.hpp"
 #include "Utilities/ErrorHandling/Error.hpp"
 #include "Utilities/MakeArray.hpp"
 
@@ -20,10 +21,17 @@ namespace GrSelfForce::AmrCriteria {
 std::array<amr::Flag, 2> RefineAtPuncture::impl(
     const elliptic::analytic_data::Background& background,
     const Domain<2>& domain, const ElementId<2>& element_id) {
+  const auto* co_ptr =
+      dynamic_cast<const GrSelfForce::AnalyticData::CircularOrbit*>(
+          &background);
+  const auto* nd_ptr =
+      co_ptr ? nullptr
+             : dynamic_cast<const GrSelfForce::AnalyticData::NumericData*>(
+                   &background);
+  ASSERT(co_ptr != nullptr or nd_ptr != nullptr,
+         "Background must be CircularOrbit or NumericData");
   const auto puncture_position =
-      dynamic_cast<const GrSelfForce::AnalyticData::CircularOrbit&>(
-          background)
-          .puncture_position();
+      co_ptr ? co_ptr->puncture_position() : nd_ptr->puncture_position();
   // Split (h-refine) the element if it contains the puncture
   const auto& block = domain.blocks()[element_id.block_id()];
   // Check if the puncture is in the block
@@ -32,7 +40,7 @@ std::array<amr::Flag, 2> RefineAtPuncture::impl(
   if (not block_logical_coords.has_value()) {
     return make_array<2>(amr::Flag::DoNothing);
   }
-  for (size_t d=0; d<2; ++d) {
+  for (size_t d = 0; d < 2; ++d) {
     if (abs(block_logical_coords->get(d)) < 1e-10) {
       block_logical_coords->get(d) = 0.;
     }
