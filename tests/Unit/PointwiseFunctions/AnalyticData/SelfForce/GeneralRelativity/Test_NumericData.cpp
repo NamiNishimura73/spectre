@@ -17,6 +17,7 @@
 #include "NumericalAlgorithms/LinearOperators/Divergence.tpp"
 #include "NumericalAlgorithms/LinearOperators/PartialDerivatives.hpp"
 #include "NumericalAlgorithms/Spectral/LogicalCoordinates.hpp"
+#include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/CircularOrbit.hpp"
 #include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/NumericData.hpp"
 #include "Utilities/TMPL.hpp"
 #include "Utilities/TaggedTuple.hpp"
@@ -25,91 +26,217 @@ namespace GrSelfForce::AnalyticData {
 
 SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
                   "[PointwiseFunctions][Unit]") {
-  // This test checks both the self-force equations and the effective source
-  // computation in a very robust way: it ensures that the elliptic operator
-  // applied to the singular field gives the effective source.
-  // This is done numerically on a rectangular grid in (r_*, theta) near
-  // the puncture.
-  const double theta_offset = M_PI / 8.;
-  const double delta_theta = M_PI / 40.;
-  const double rstar_offset = 0.;
-  const double delta_rstar = 5.;
-  const size_t npoints = 20;
-  const domain::creators::Rectangle domain_creator{
-      {{rstar_offset, M_PI_2 + theta_offset}},
-      {{rstar_offset + delta_rstar, M_PI_2 + theta_offset + delta_theta}},
-      {{0, 0}},
-      {{npoints, npoints}},
-      {{false, false}}};
-  const auto domain = domain_creator.create_domain();
-  const auto& block = domain.blocks()[0];
-  const ElementId<2> element_id{0};
-  const ElementMap<2, Frame::Inertial> element_map{element_id, block};
-  const Mesh<2> mesh{npoints, Spectral::Basis::Legendre,
-                     Spectral::Quadrature::Gauss};
-  const auto xi = logical_coordinates(mesh);
-  const auto x = element_map(xi);
-  const auto inv_jacobian = element_map.inv_jacobian(xi);
-  const auto& r_star = get<0>(x);
-  const auto& theta = get<1>(x);
-  CAPTURE(min(r_star));
-  CAPTURE(max(r_star));
-  CAPTURE(min(theta));
-  CAPTURE(max(theta));
+  // Test that NumericData (h5-based) agrees with CircularOrbit (analytic)
+  // for a 1st-order h5 dataset. Three checks:
+  //   1. Seff inside the worldtube (2D mesh, field_is_regularized=true)
+  //   2. hS and its normal derivative at the Left face (r = r_wt_left)
+  //   3. hS and its normal derivative at the Bottom face (theta = theta_wt_bot)
 
-  // Get the analytic fields
-  for (int m_mode_number = 0; m_mode_number < 3; ++m_mode_number) {
-    CAPTURE(m_mode_number);
-    const auto circular_orbit =
-        NumericData{"/Users/nilsvu/Downloads/D2G_m2_a0.600_r8.000.h5", 1., 0.6,
-                    8., m_mode_number, std::array<double, 2>{{0.0, 0.0}}, false};
-    CAPTURE(circular_orbit.puncture_position());
-    const auto background =
-        circular_orbit.variables(x, NumericData::background_tags{});
-    const auto& alpha = get<Tags::Alpha>(background);
-    const auto& beta = get<Tags::Beta>(background);
-    const auto& gamma_rstar = get<Tags::GammaRstar>(background);
-    const auto& gamma_theta = get<Tags::GammaTheta>(background);
-    const auto vars = circular_orbit.variables(x, NumericData::source_tags{}, true);
-    const auto& singular_field = get<Tags::SingularField>(vars);
-    const auto& deriv_singular_field = get<
-        ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
-        vars);
-    const auto& effective_source = get<::Tags::FixedSource<Tags::MMode>>(vars);
+  const std::string h5_file =
+      "/u/namni/spectre_copy/data/"
+      "NamiD2G_m2_a0.600_r8.000comoving_moregrid500_ascii.h5";
+  const double bh_mass = 1.;
+  const double bh_spin = 0.6;
+  const double orbital_radius = 8.;
+  const int m_mode = 2;
+  // Transitions from RetRetV/T/U grid bounds in h5
+  const std::array<double, 4> transitions{3.8667, 3.8667, 14.2, 14.2};
 
-    // Take numeric derivative
-    const auto numeric_deriv_singular_field =
-        partial_derivative(singular_field, mesh, inv_jacobian);
-    const Approx custom_approx = Approx::custom().epsilon(1.e-10).scale(1.);
-    for (size_t i = 0; i < deriv_singular_field.size(); ++i) {
-      CAPTURE(i);
-      CHECK_ITERABLE_CUSTOM_APPROX(numeric_deriv_singular_field[i],
-                                   deriv_singular_field[i], custom_approx);
-    }
+  // Worldtube face coordinates (from Seff.dat attributes)
+  const double r_wt_left = 5.933333333333333;
+  const double r_wt_right = 10.066666666666666;
+  // thetaMin = pi/3 -> cos = 0.5;  thetaMax = 2*pi/3 -> cos = -0.5
+  const double cos_wt_bot = 0.5;
+  const double cos_wt_top = -0.5;
 
-    Variables<
-        tmpl::list<::Tags::Flux<Tags::MMode, tmpl::size_t<2>, Frame::Inertial>>>
-        fluxes{mesh.number_of_grid_points()};
-    auto& flux_singular_field =
-        get<::Tags::Flux<Tags::MMode, tmpl::size_t<2>, Frame::Inertial>>(
-            fluxes);
-    GrSelfForce::Fluxes::apply(make_not_null(&flux_singular_field), alpha, {},
-                               deriv_singular_field);
-    auto divs = divergence(fluxes, mesh, inv_jacobian);
-    auto& scalar_eqn = get<::Tags::div<
-        ::Tags::Flux<Tags::MMode, tmpl::size_t<2>, Frame::Inertial>>>(divs);
-    for (size_t i = 0; i < scalar_eqn.size(); ++i) {
-      scalar_eqn[i] *= -1.;
-    }
-    GrSelfForce::Sources::apply(make_not_null(&scalar_eqn), beta, gamma_rstar,
-                                gamma_theta, singular_field,
-                                deriv_singular_field, flux_singular_field);
-    for (size_t i = 0; i < scalar_eqn.size(); ++i) {
-      CAPTURE(i);
-      CHECK_ITERABLE_CUSTOM_APPROX(scalar_eqn[i], -effective_source[i],
-                                   custom_approx);
+  const NumericData numeric_data{h5_file,    bh_mass,         bh_spin,
+                                 orbital_radius, m_mode, transitions,
+                                 true,      false};
+  const CircularOrbit circular_orbit{bh_mass, bh_spin, orbital_radius,
+                                     m_mode, transitions, true};
+
+  const Approx approx = Approx::custom().epsilon(1.e-5).scale(1.);
+
+  // -----------------------------------------------------------------------
+  // Test 1: Seff on a 2D interior mesh (field_is_regularized=true uses the
+  // high-resolution 500x500 Seff.dat grid)
+  // -----------------------------------------------------------------------
+  {
+    const size_t npoints = 10;
+    // Domain well inside worldtube bounds
+    const domain::creators::Rectangle domain_creator{
+        {{6.5, -0.3}}, {{9.5, 0.3}},
+        {{0, 0}}, {{npoints, npoints}}, {{false, false}}};
+    const auto domain = domain_creator.create_domain();
+    const ElementMap<2, Frame::Inertial> element_map{ElementId<2>{0},
+                                                     domain.blocks()[0]};
+    const Mesh<2> mesh{npoints, Spectral::Basis::Legendre,
+                       Spectral::Quadrature::Gauss};
+    const auto x = element_map(logical_coordinates(mesh));
+
+    const auto nd_vars =
+        numeric_data.variables(x, NumericData::source_tags{}, true);
+    const auto co_vars =
+        circular_orbit.variables(x, CircularOrbit::source_tags{}, true);
+    const auto& nd_seff = get<::Tags::FixedSource<Tags::MMode>>(nd_vars);
+    const auto& co_seff = get<::Tags::FixedSource<Tags::MMode>>(co_vars);
+    for (size_t i = 0; i < nd_seff.size(); ++i) {
+      CHECK_ITERABLE_CUSTOM_APPROX(nd_seff[i], co_seff[i], approx);
     }
   }
+
+  // -----------------------------------------------------------------------
+  // Test 2: hS and dhS/dr at Left face (r = r_wt_left, cos_theta varies)
+  // NumericData fills singular_field from Left.dat (1D, theta-parameterized)
+  // and stores dhS/dr in deriv_singular_field.get(0,...); theta-deriv = 0.
+  // -----------------------------------------------------------------------
+  {
+    const size_t nface = 10;
+    tnsr::I<DataVector, 2> x_left{};
+    get<0>(x_left) = DataVector(nface, r_wt_left);
+    get<1>(x_left) = DataVector(nface, 0.);
+    for (size_t i = 0; i < nface; ++i) {
+      // cos_theta strictly inside worldtube (avoid corners)
+      get<1>(x_left)[i] =
+          cos_wt_top + (cos_wt_bot - cos_wt_top) * (i + 1.) / (nface + 1.);
+    }
+
+    const auto nd_vars =
+        numeric_data.variables(x_left, NumericData::source_tags{}, true);
+    const auto co_vars =
+        circular_orbit.variables(x_left, CircularOrbit::source_tags{}, true);
+    const auto& nd_hS = get<Tags::SingularField>(nd_vars);
+    const auto& co_hS = get<Tags::SingularField>(co_vars);
+    const auto& nd_dhS = get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>,
+                                           Frame::Inertial>>(nd_vars);
+    const auto& co_dhS = get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>,
+                                           Frame::Inertial>>(co_vars);
+
+    for (size_t i = 0; i < nd_hS.size(); ++i) {
+      CHECK_ITERABLE_CUSTOM_APPROX(nd_hS[i], co_hS[i], approx);
+    }
+    // Only the r-derivative (index 0) is populated at Left face
+    for (size_t a1 = 0; a1 < 4; ++a1) {
+      for (size_t b = 0; b <= a1; ++b) {
+        CHECK_ITERABLE_CUSTOM_APPROX(nd_dhS.get(0, a1, b),
+                                     co_dhS.get(0, a1, b), approx);
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Test 3: hS and dhS/dtheta at Bottom face (cos_theta = cos_wt_bot, r varies)
+  // NumericData fills from Bottom.dat (1D, r-parameterized)
+  // and stores dhS/dtheta in deriv_singular_field.get(1,...); r-deriv = 0.
+  // -----------------------------------------------------------------------
+  {
+    const size_t nface = 10;
+    tnsr::I<DataVector, 2> x_bot{};
+    get<0>(x_bot) = DataVector(nface, 0.);
+    get<1>(x_bot) = DataVector(nface, cos_wt_bot);
+    for (size_t i = 0; i < nface; ++i) {
+      // r strictly inside worldtube (avoid corners)
+      get<0>(x_bot)[i] =
+          r_wt_left + (r_wt_right - r_wt_left) * (i + 1.) / (nface + 1.);
+    }
+
+    const auto nd_vars =
+        numeric_data.variables(x_bot, NumericData::source_tags{}, true);
+    const auto co_vars =
+        circular_orbit.variables(x_bot, CircularOrbit::source_tags{}, true);
+    const auto& nd_hS = get<Tags::SingularField>(nd_vars);
+    const auto& co_hS = get<Tags::SingularField>(co_vars);
+    const auto& nd_dhS = get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>,
+                                           Frame::Inertial>>(nd_vars);
+    const auto& co_dhS = get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>,
+                                           Frame::Inertial>>(co_vars);
+
+    for (size_t i = 0; i < nd_hS.size(); ++i) {
+      CHECK_ITERABLE_CUSTOM_APPROX(nd_hS[i], co_hS[i], approx);
+    }
+    // Only the theta-derivative (index 1) is populated at Bottom face
+    for (size_t a1 = 0; a1 < 4; ++a1) {
+      for (size_t b = 0; b <= a1; ++b) {
+        CHECK_ITERABLE_CUSTOM_APPROX(nd_dhS.get(1, a1, b),
+                                     co_dhS.get(1, a1, b), approx);
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Old test: elliptic PDE x singular field = effective source.
+  // Not active: NumericData only provides hS at worldtube face points (zero
+  // at interior), so the derivative check is trivial and the PDE check does
+  // not hold. Kept here for potential future use if analytic hS is restored.
+  // -----------------------------------------------------------------------
+  // {
+  //   const double r_offset = 5.;
+  //   const double delta_r = 5.;
+  //   const double cos_theta_offset = 0.89;
+  //   const double delta_cos_theta = 0.03;
+  //   const size_t npoints = 20;
+  //   const domain::creators::Rectangle domain_creator{
+  //       {{r_offset, cos_theta_offset}},
+  //       {{r_offset + delta_r, cos_theta_offset + delta_cos_theta}},
+  //       {{0, 0}}, {{npoints, npoints}}, {{false, false}}};
+  //   const auto domain = domain_creator.create_domain();
+  //   const ElementMap<2, Frame::Inertial> element_map{
+  //       ElementId<2>{0}, domain.blocks()[0]};
+  //   const Mesh<2> mesh{npoints, Spectral::Basis::Legendre,
+  //                      Spectral::Quadrature::Gauss};
+  //   const auto xi = logical_coordinates(mesh);
+  //   const auto x = element_map(xi);
+  //   const auto inv_jacobian = element_map.inv_jacobian(xi);
+  //
+  //   const auto nd = NumericData{h5_file, bh_mass, bh_spin, orbital_radius,
+  //                               m_mode, transitions, true, false};
+  //   CAPTURE(nd.puncture_position());
+  //   const auto background = nd.variables(x, NumericData::background_tags{});
+  //   const auto& alpha = get<Tags::Alpha>(background);
+  //   const auto& beta = get<Tags::Beta>(background);
+  //   const auto& gamma_rstar = get<Tags::GammaRstar>(background);
+  //   const auto& gamma_theta = get<Tags::GammaTheta>(background);
+  //   const auto vars = nd.variables(x, NumericData::source_tags{}, true);
+  //   const auto& singular_field = get<Tags::SingularField>(vars);
+  //   const auto& deriv_singular_field =
+  //       get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>,
+  //                         Frame::Inertial>>(vars);
+  //   const auto& effective_source =
+  //       get<::Tags::FixedSource<Tags::MMode>>(vars);
+  //
+  //   const auto numeric_deriv =
+  //       partial_derivative(singular_field, mesh, inv_jacobian);
+  //   const Approx custom_approx = Approx::custom().epsilon(1.e-10).scale(1.);
+  //   for (size_t i = 0; i < deriv_singular_field.size(); ++i) {
+  //     CAPTURE(i);
+  //     CHECK_ITERABLE_CUSTOM_APPROX(numeric_deriv[i],
+  //                                  deriv_singular_field[i], custom_approx);
+  //   }
+  //
+  //   Variables<tmpl::list<
+  //       ::Tags::Flux<Tags::MMode, tmpl::size_t<2>, Frame::Inertial>>>
+  //       fluxes{mesh.number_of_grid_points()};
+  //   auto& flux_singular_field =
+  //       get<::Tags::Flux<Tags::MMode, tmpl::size_t<2>, Frame::Inertial>>(
+  //           fluxes);
+  //   GrSelfForce::Fluxes::apply(make_not_null(&flux_singular_field), alpha,
+  //                              {}, deriv_singular_field);
+  //   auto divs = divergence(fluxes, mesh, inv_jacobian);
+  //   auto& scalar_eqn =
+  //       get<::Tags::div<::Tags::Flux<Tags::MMode, tmpl::size_t<2>,
+  //                                   Frame::Inertial>>>(divs);
+  //   for (size_t i = 0; i < scalar_eqn.size(); ++i) {
+  //     scalar_eqn[i] *= -1.;
+  //   }
+  //   GrSelfForce::Sources::apply(make_not_null(&scalar_eqn), beta,
+  //                               gamma_rstar, gamma_theta, singular_field,
+  //                               deriv_singular_field, flux_singular_field);
+  //   for (size_t i = 0; i < scalar_eqn.size(); ++i) {
+  //     CAPTURE(i);
+  //     CHECK_ITERABLE_CUSTOM_APPROX(scalar_eqn[i], -effective_source[i],
+  //                                  custom_approx);
+  //   }
+  // }
 }
 
 }  // namespace GrSelfForce::AnalyticData
