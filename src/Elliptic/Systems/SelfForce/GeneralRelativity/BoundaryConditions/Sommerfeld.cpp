@@ -17,12 +17,14 @@ namespace GrSelfForce::BoundaryConditions {
 Sommerfeld::Sommerfeld(const double black_hole_mass,
                        const double black_hole_spin,
                        const double orbital_radius, const int m_mode_number,
-                       const bool hyperboloidal_slicing, const int order)
+                       const bool hyperboloidal_slicing, 
+                       const bool penetrating_horizon, const int order)
     : black_hole_mass_(black_hole_mass),
       black_hole_spin_(black_hole_spin),
       orbital_radius_(orbital_radius),
       m_mode_number_(m_mode_number),
       hyperboloidal_slicing_(hyperboloidal_slicing),
+      penetrating_horizon_(penetrating_horizon),
       order_(order) {}
 
 Sommerfeld::Sommerfeld(CkMigrateMessage* m) : Base(m) {}
@@ -34,14 +36,15 @@ Sommerfeld::get_clone() const {
 
 void Sommerfeld::apply(
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field,
-    const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_field_gradient,
+    const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_flux,
     const GradTensorType& /*deriv_field*/,
+    const tnsr::I<ComplexDataVector, 2>& alpha,
     const tnsr::aaBB<ComplexDataVector, 3>& beta,
     const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const {
   if (hyperboloidal_slicing_) {
     if (order_ == 1) {
       for (size_t i = 0; i < field->size(); ++i) {
-        (*n_dot_field_gradient)[i] = 0.;
+        (*n_dot_flux)[i] = 0.;
       }
     } else if (order_ == 2) {
       static bool has_printed = false;
@@ -69,10 +72,13 @@ void Sommerfeld::apply(
         }
         blaze::StaticVector<std::complex<double>, 10> grad_vec =
             blaze::solve(A_local, b_local);
+        const std::complex<double> alpha_factor =
+            penetrating_horizon_ ? alpha.get(0)[i]
+                                 : std::complex<double>(1.0);
         for (size_t a = 0; a < 4; ++a) {
           for (size_t b = 0; b <= a; ++b) {
             const size_t row = TensorStruct::get_storage_index(a, b);
-            n_dot_field_gradient->get(a, b)[i] = grad_vec[row];
+            n_dot_flux->get(a, b)[i] = alpha_factor * grad_vec[row];
           }
         }
       }
@@ -90,7 +96,7 @@ void Sommerfeld::apply(
   const double omega = 1. / (a + sqrt(cube(r_0) / M));
   if (order_ == 1) {
     for (size_t i = 0; i < field->size(); ++i) {
-      (*n_dot_field_gradient)[i] =
+      (*n_dot_flux)[i] =
           std::complex<double>(0.0, m_mode_number_ * omega) * (*field)[i];
     }
   } else {
@@ -102,12 +108,13 @@ void Sommerfeld::apply(
 void Sommerfeld::apply_linearized(
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field_correction,
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*>
-        n_dot_field_correction_gradient,
+        n_dot_flux_correction,
     const GradTensorType& deriv_field_correction,
+    const tnsr::I<ComplexDataVector, 2>& alpha,
     const tnsr::aaBB<ComplexDataVector, 3>& beta,
     const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const {
-  apply(field_correction, n_dot_field_correction_gradient,
-        deriv_field_correction, beta, gamma_rstar);
+  apply(field_correction, n_dot_flux_correction,
+        deriv_field_correction, alpha, beta, gamma_rstar);
 }
 
 void Sommerfeld::pup(PUP::er& p) {
@@ -116,6 +123,7 @@ void Sommerfeld::pup(PUP::er& p) {
   p | orbital_radius_;
   p | m_mode_number_;
   p | hyperboloidal_slicing_;
+  p | penetrating_horizon_;
   p | order_;
 }
 
@@ -125,6 +133,7 @@ bool operator==(const Sommerfeld& lhs, const Sommerfeld& rhs) {
          lhs.orbital_radius_ == rhs.orbital_radius_ and
          lhs.m_mode_number_ == rhs.m_mode_number_ and
          lhs.hyperboloidal_slicing_ == rhs.hyperboloidal_slicing_ and
+         lhs.penetrating_horizon_ == rhs.penetrating_horizon_ and
          lhs.order_ == rhs.order_;
 }
 

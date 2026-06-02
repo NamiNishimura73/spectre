@@ -8,7 +8,6 @@ add_spectre_library(${LIBRARY})
 spectre_target_sources(
   ${LIBRARY}
   PRIVATE
-  Angular.cpp
   None.cpp
   Sommerfeld.cpp
   )
@@ -17,7 +16,6 @@ spectre_target_headers(
   ${LIBRARY}
   INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/src
   HEADERS
-  Angular.hpp
   Factory.hpp
   None.hpp
   Sommerfeld.hpp

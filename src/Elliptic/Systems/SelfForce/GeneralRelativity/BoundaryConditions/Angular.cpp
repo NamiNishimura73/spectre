@@ -16,18 +16,18 @@ Angular::Angular(CkMigrateMessage* m) : Base(m) {}
 
 void Angular::apply(
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field,
-    const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_field_gradient,
+    const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_flux,
     const GradTensorType& /*deriv_field*/) const {
   // Ordering of numbered variables in comments below:
   // tt, tr, ttheta, tphi, rr, rtheta, rphi, theta theta, theta phi, phi phi
   if (m_mode_number_ == 0) {
     // Dirichlet for components 2, 3, 5-9
     // Neumann for components 0, 1, 4
-    // get<0, 0>(*n_dot_field_gradient) = 0.;
-    // get<0, 1>(*n_dot_field_gradient) = 0.;
-    get<0, 2>(*field) = 0.; 
-    get<0, 3>(*field) = 0.; // was this typo? we had (*n_dot_field_gradient) = 0.
-    // get<1, 1>(*n_dot_field_gradient) = 0.; // was this typo? we had (*field) = 0.
+    // get<0, 0>(*n_dot_flux) = 0.;
+    // get<0, 1>(*n_dot_flux) = 0.;
+    get<0, 2>(*field) = 0.;
+    get<0, 3>(*field) = 0.; // was this typo? we had (*n_dot_flux) = 0.
+    // get<1, 1>(*n_dot_flux) = 0.; // was this typo? we had (*field) = 0.
     get<1, 2>(*field) = 0.;
     get<1, 3>(*field) = 0.;
     get<2, 2>(*field) = 0.;
@@ -38,11 +38,11 @@ void Angular::apply(
     // Neumann for components 2, 3, 5, 6
     get<0, 0>(*field) = 0.;
     get<0, 1>(*field) = 0.;
-    get<0, 2>(*n_dot_field_gradient) = 0.;
-    get<0, 3>(*n_dot_field_gradient) = 0.;
+    get<0, 2>(*n_dot_flux) = 0.;
+    get<0, 3>(*n_dot_flux) = 0.;
     get<1, 1>(*field) = 0.;
-    get<1, 2>(*n_dot_field_gradient) = 0.;
-    get<1, 3>(*n_dot_field_gradient) = 0.;
+    get<1, 2>(*n_dot_flux) = 0.;
+    get<1, 3>(*n_dot_flux) = 0.;
     get<2, 2>(*field) = 0.;
     get<2, 3>(*field) = 0.;
     get<3, 3>(*field) = 0.;
@@ -56,9 +56,9 @@ void Angular::apply(
     get<1, 1>(*field) = 0.;
     get<1, 2>(*field) = 0.;
     get<1, 3>(*field) = 0.;
-    get<2, 2>(*n_dot_field_gradient) = 0.;
-    get<2, 3>(*n_dot_field_gradient) = 0.;
-    get<3, 3>(*n_dot_field_gradient) = 0.;
+    get<2, 2>(*n_dot_flux) = 0.;
+    get<2, 3>(*n_dot_flux) = 0.;
+    get<3, 3>(*n_dot_flux) = 0.;
   } else {
     // All Dirichlet
     for (size_t i = 0; i < field->size(); ++i) {
@@ -70,9 +70,9 @@ void Angular::apply(
 void Angular::apply_linearized(
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field_correction,
     const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*>
-        n_dot_field_correction_gradient,
+        n_dot_flux_correction,
     const GradTensorType& deriv_field_correction) const {
-  apply(field_correction, n_dot_field_correction_gradient,
+  apply(field_correction, n_dot_flux_correction,
         deriv_field_correction);
 }
 

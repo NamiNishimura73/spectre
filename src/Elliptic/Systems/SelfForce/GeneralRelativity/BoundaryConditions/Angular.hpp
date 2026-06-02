@@ -89,7 +89,7 @@ class Angular : public elliptic::BoundaryConditions::BoundaryCondition<2> {
 
   void apply(
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field,
-      gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_field_gradient,
+      gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_flux,
       const GradTensorType& deriv_field) const;
 
   using argument_tags_linearized = tmpl::list<>;
@@ -98,7 +98,7 @@ class Angular : public elliptic::BoundaryConditions::BoundaryCondition<2> {
   void apply_linearized(
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field_correction,
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*>
-          n_dot_field_correction_gradient,
+          n_dot_flux_correction,
       const GradTensorType& deriv_field_correction) const;
 
   // NOLINTNEXTLINE

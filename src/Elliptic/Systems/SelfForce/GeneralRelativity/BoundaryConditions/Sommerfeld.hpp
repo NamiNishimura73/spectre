@@ -67,6 +67,13 @@ class Sommerfeld : public elliptic::BoundaryConditions::BoundaryCondition<2> {
         "boundary condition is applied.";
     using type = bool;
   };
+  struct PenetratingHorizon {
+    static constexpr Options::String help =
+        "If 'True', use Boyer-Lindquist radial coordinate (penetrating "
+        "horizon). The order-2 hyperboloidal boundary condition gains an "
+        "extra Delta/(r^2+a^2) factor at the boundary.";
+    using type = bool;
+  };
   struct Order {
     static constexpr Options::String help =
         "Order of the boundary condition. First order (Order=1) implements "
@@ -78,7 +85,8 @@ class Sommerfeld : public elliptic::BoundaryConditions::BoundaryCondition<2> {
   static constexpr Options::String help =
       "Radial Sommerfeld boundary condition";
   using options = tmpl::list<BlackHoleMass, BlackHoleSpin, OrbitalRadius,
-                             MModeNumber, HyperboloidalSlicing, Order>;
+                             MModeNumber, HyperboloidalSlicing,
+                             PenetratingHorizon, Order>;
   Sommerfeld() = default;
   Sommerfeld(const Sommerfeld&) = default;
   Sommerfeld& operator=(const Sommerfeld&) = default;
@@ -88,13 +96,15 @@ class Sommerfeld : public elliptic::BoundaryConditions::BoundaryCondition<2> {
 
   explicit Sommerfeld(double black_hole_mass, double black_hole_spin,
                       double orbital_radius, int m_mode_number,
-                      bool hyperboloidal_slicing, int order);
+                      bool hyperboloidal_slicing,
+                      bool penetrating_horizon, int order);
 
   double black_hole_mass() const { return black_hole_mass_; }
   double black_hole_spin() const { return black_hole_spin_; }
   double orbital_radius() const { return orbital_radius_; }
   int m_mode_number() const { return m_mode_number_; }
   bool hyperboloidal_slicing() const { return hyperboloidal_slicing_; }
+  bool penetrating_horizon() const { return penetrating_horizon_; }
   int order() const { return order_; }
 
   /// \cond
@@ -111,24 +121,26 @@ class Sommerfeld : public elliptic::BoundaryConditions::BoundaryCondition<2> {
     return {elliptic::BoundaryConditionType::Neumann};
   }
 
-  using argument_tags = tmpl::list<Tags::Beta, Tags::GammaRstar>;
+  using argument_tags = tmpl::list<Tags::Alpha, Tags::Beta, Tags::GammaRstar>;
   using volume_tags = tmpl::list<>;
 
   void apply(
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field,
-      gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_field_gradient,
+      gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> n_dot_flux,
       const GradTensorType& deriv_field,
+      const tnsr::I<ComplexDataVector, 2>& alpha,
       const tnsr::aaBB<ComplexDataVector, 3>& beta,
       const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const;
 
-  using argument_tags_linearized = tmpl::list<Tags::Beta, Tags::GammaRstar>;
+  using argument_tags_linearized = tmpl::list<Tags::Alpha, Tags::Beta, Tags::GammaRstar>;
   using volume_tags_linearized = tmpl::list<>;
 
   void apply_linearized(
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field_correction,
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*>
-          n_dot_field_correction_gradient,
+          n_dot_flux_correction,
       const GradTensorType& deriv_field_correction,
+      const tnsr::I<ComplexDataVector, 2>& alpha,
       const tnsr::aaBB<ComplexDataVector, 3>& beta,
       const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const;
 
@@ -143,6 +155,7 @@ class Sommerfeld : public elliptic::BoundaryConditions::BoundaryCondition<2> {
   double orbital_radius_{std::numeric_limits<double>::signaling_NaN()};
   int m_mode_number_{};
   bool hyperboloidal_slicing_{false};
+  bool penetrating_horizon_{};
   int order_{1};
 };
 
