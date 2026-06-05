@@ -124,12 +124,15 @@ struct ModifyBoundaryData {
   using argument_tags = tmpl::list<
       Tags::FieldIsRegularized, ::Tags::Mortars<Tags::FieldIsRegularized, Dim>,
       ::Tags::Mortars<singular_vars_on_mortars_tag, Dim>,
-      ::Tags::Mortars<domain::Tags::Coordinates<Dim, Frame::Inertial>, Dim>>;
+      ::Tags::Mortars<domain::Tags::Coordinates<Dim, Frame::Inertial>, Dim>,
+      domain::Tags::Element<Dim>, Tags::NullSlicingBlocks,
+      elliptic::Tags::Background<elliptic::analytic_data::Background>>;
 
  public:
   using argument_tags_linearized = tmpl::list<
       domain::Tags::Element<Dim>, Tags::NullSlicingBlocks,
-      elliptic::Tags::Background<elliptic::analytic_data::Background>>;
+      elliptic::Tags::Background<elliptic::analytic_data::Background>,
+      ::Tags::Mortars<domain::Tags::Coordinates<Dim, Frame::Inertial>, Dim>>;
   using const_global_cache_tags = tmpl::list<
       Tags::NullSlicingBlocks,
       elliptic::Tags::Background<elliptic::analytic_data::Background>>;
@@ -140,7 +143,10 @@ struct ModifyBoundaryData {
       const DirectionalIdMap<Dim, bool>& neighbors_field_is_regularized,
       const DirectionalIdMap<Dim, typename singular_vars_on_mortars_tag::type>&
           singular_vars_on_mortars,
-      const DirectionalIdMap<Dim, tnsr::I<DataVector, Dim>>& all_mortar_coords);
+      const DirectionalIdMap<Dim,
+                             tnsr::I<DataVector, Dim>>& /*all_mortar_coords*/,
+      const Element<Dim>& element, const std::set<size_t>& null_slicing_blocks,
+      const elliptic::analytic_data::Background& background);
   static void apply_linearized(
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> field_remote,
       gsl::not_null<tnsr::aa<ComplexDataVector, 3>*>
@@ -149,7 +155,9 @@ struct ModifyBoundaryData {
       const tnsr::aa<ComplexDataVector, 3>& n_dot_field_gradient_local,
       const DirectionalId<Dim>& mortar_id, const Element<Dim>& element,
       const std::set<size_t>& null_slicing_blocks,
-      const elliptic::analytic_data::Background& background);
+      const elliptic::analytic_data::Background& background,
+      const DirectionalIdMap<Dim,
+                             tnsr::I<DataVector, Dim>>& /*all_mortar_coords*/);
 };
 
 }  // namespace GrSelfForce

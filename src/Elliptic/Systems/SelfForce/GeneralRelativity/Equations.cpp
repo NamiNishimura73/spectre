@@ -94,13 +94,29 @@ void ModifyBoundaryData::apply(
     const DirectionalIdMap<Dim, bool>& neighbors_field_is_regularized,
     const DirectionalIdMap<Dim, typename singular_vars_on_mortars_tag::type>&
         singular_vars_on_mortars,
-    const DirectionalIdMap<Dim, tnsr::I<DataVector, Dim>>& all_mortar_coords) {
+    const DirectionalIdMap<Dim,
+                           tnsr::I<DataVector, Dim>>& /*all_mortar_coords*/,
+    const Element<Dim>& element, const std::set<size_t>& null_slicing_blocks,
+    const elliptic::analytic_data::Background& background) {
   if (field_is_regularized == neighbors_field_is_regularized.at(mortar_id)) {
     // Both elements solve for the same field. Nothing to do.
     return;
   }
   // Subtract the singular field on the regularized side, and add it on the
   // other side
+  const auto* co_ptr =
+      dynamic_cast<const GrSelfForce::AnalyticData::CircularOrbit*>(
+          &background);
+  const auto* nd_ptr =
+      co_ptr ? nullptr
+             : dynamic_cast<const GrSelfForce::AnalyticData::NumericData*>(
+                   &background);
+  ASSERT(co_ptr != nullptr or nd_ptr != nullptr,
+         "Background must be CircularOrbit or NumericData");
+  const GrSelfForce::AnalyticData::CircularOrbit& circular_orbit =
+      co_ptr ? *co_ptr : nd_ptr->circular_orbit();
+  const double omega = circular_orbit.omega();
+  const double m_mode_number = circular_orbit.m_mode_number();
   const double sign = field_is_regularized ? -1. : 1.;
   const auto& singular_field =
       get<Tags::SingularField>(singular_vars_on_mortars.at(mortar_id));
@@ -131,9 +147,17 @@ void ModifyBoundaryData::apply(
   //         ndF_tt.size() > 1 ? imag(ndF_tt[1]) : 0.);
   //   }
   // }
+  const bool apply_vtu_cross_term =
+      null_slicing_blocks.contains(element.id().block_id()) !=
+      null_slicing_blocks.contains(mortar_id.id().block_id());
   for (size_t i = 0; i < singular_field.size(); ++i) {
     (*field)[i] += sign * singular_field[i];
     (*n_dot_flux)[i] -= sign * singular_field_n_dot_flux[i];
+    if (apply_vtu_cross_term) {
+      (*n_dot_flux)[i] -=
+          std::complex<double>(0.0, sign * m_mode_number * omega * 0.5) *
+          (*field)[i];
+    }
   }
 }
 
@@ -145,7 +169,9 @@ void ModifyBoundaryData::apply_linearized(
     const tnsr::aa<ComplexDataVector, 3>& /*n_dot_field_gradient_local*/,
     const DirectionalId<Dim>& mortar_id, const Element<Dim>& element,
     const std::set<size_t>& null_slicing_blocks,
-    const elliptic::analytic_data::Background& background) {
+    const elliptic::analytic_data::Background& background,
+    const DirectionalIdMap<Dim,
+                           tnsr::I<DataVector, Dim>>& /*all_mortar_coords*/) {
   if (null_slicing_blocks.contains(element.id().block_id()) ==
       null_slicing_blocks.contains(mortar_id.id().block_id())) {
     // Both elements use the same slicing. Nothing to do.
