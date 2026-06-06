@@ -17,6 +17,7 @@
 #include "NumericalAlgorithms/LinearOperators/Divergence.tpp"
 #include "NumericalAlgorithms/LinearOperators/PartialDerivatives.hpp"
 #include "NumericalAlgorithms/Spectral/LogicalCoordinates.hpp"
+#include "Parallel/Printf/Printf.hpp"
 #include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/CircularOrbit.hpp"
 #include "PointwiseFunctions/AnalyticData/SelfForce/GeneralRelativity/NumericData.hpp"
 #include "Utilities/TMPL.hpp"
@@ -34,7 +35,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
 
   const std::string h5_file =
       "/u/namni/spectre_copy/data/"
-      "NamiD2G_m2_a0.600_r8.000comoving_moregrid500_ascii.h5";
+      "NamiD2G_m2_a0.600_r8.000comoving_moregrid5000_ascii.h5";
   const double bh_mass = 1.;
   const double bh_spin = 0.6;
   const double orbital_radius = 8.;
@@ -49,13 +50,12 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
   const double cos_wt_bot = 0.5;
   const double cos_wt_top = -0.5;
 
-  const NumericData numeric_data{h5_file,    bh_mass,         bh_spin,
-                                 orbital_radius, m_mode, transitions,
-                                 true,      false};
-  const CircularOrbit circular_orbit{bh_mass, bh_spin, orbital_radius,
-                                     m_mode, transitions, true};
+  const NumericData numeric_data{h5_file, bh_mass,     bh_spin, orbital_radius,
+                                 m_mode,  transitions, true,    false};
+  const CircularOrbit circular_orbit{bh_mass, bh_spin,     orbital_radius,
+                                     m_mode,  transitions, true};
 
-  const Approx approx = Approx::custom().epsilon(1.e-5).scale(1.);
+  const Approx approx = Approx::custom().epsilon(1.e-6).scale(1.);
 
   // -----------------------------------------------------------------------
   // Test 1: Seff on a 2D interior mesh (field_is_regularized=true uses the
@@ -64,9 +64,11 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
   {
     const size_t npoints = 10;
     // Domain well inside worldtube bounds
-    const domain::creators::Rectangle domain_creator{
-        {{6.5, -0.3}}, {{9.5, 0.3}},
-        {{0, 0}}, {{npoints, npoints}}, {{false, false}}};
+    const domain::creators::Rectangle domain_creator{{{6.5, -0.3}},
+                                                     {{9.5, 0.3}},
+                                                     {{0, 0}},
+                                                     {{npoints, npoints}},
+                                                     {{false, false}}};
     const auto domain = domain_creator.create_domain();
     const ElementMap<2, Frame::Inertial> element_map{ElementId<2>{0},
                                                      domain.blocks()[0]};
@@ -80,6 +82,32 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
         circular_orbit.variables(x, CircularOrbit::source_tags{}, true);
     const auto& nd_seff = get<::Tags::FixedSource<Tags::MMode>>(nd_vars);
     const auto& co_seff = get<::Tags::FixedSource<Tags::MMode>>(co_vars);
+    // double max_diff = 0.;
+    // size_t max_i = 0, max_j = 0;
+    // for (size_t i = 0; i < nd_seff.size(); ++i)
+    //   for (size_t j = 0; j < nd_seff[i].size(); ++j) {
+    //     const double diff = std::abs(nd_seff[i][j] - co_seff[i][j]);
+    //     if (diff > max_diff) {
+    //       max_diff = diff;
+    //       max_i = i;
+    //       max_j = j;
+    //     }
+    //   }
+    // printf(
+    //     "Test 1 Seff:   max|diff|=%.3e  at r=%.4f cos_theta=%.4f (component "
+    //     "%zu)\n",
+    //     max_diff, get<0>(x)[max_j], get<1>(x)[max_j], max_i);
+    // printf("# Test1_Seff r  cos_theta  abs_diff\n");
+    // for (size_t j = 0; j < nd_seff[0].size(); ++j) {
+    //   double diff_j = 0.;
+    //   for (size_t i = 0; i < nd_seff.size(); ++i)
+    //     diff_j = std::max(diff_j, std::abs(nd_seff[i][j] - co_seff[i][j]));
+    //   printf("%.6e  %.6e  %.6e\n", get<0>(x)[j], get<1>(x)[j], diff_j);
+    // }
+    // // for (size_t i = 0; i < nd_seff.size(); ++i) {
+    // //   CHECK_ITERABLE_CUSTOM_APPROX(nd_seff[i], co_seff[i], approx);
+    // // }
+    // CHECK(max_diff < 1.e-3);
     for (size_t i = 0; i < nd_seff.size(); ++i) {
       CHECK_ITERABLE_CUSTOM_APPROX(nd_seff[i], co_seff[i], approx);
     }
@@ -107,19 +135,63 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
         circular_orbit.variables(x_left, CircularOrbit::source_tags{}, true);
     const auto& nd_hS = get<Tags::SingularField>(nd_vars);
     const auto& co_hS = get<Tags::SingularField>(co_vars);
-    const auto& nd_dhS = get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>,
-                                           Frame::Inertial>>(nd_vars);
-    const auto& co_dhS = get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>,
-                                           Frame::Inertial>>(co_vars);
-
+    const auto& nd_dhS = get<
+        ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
+        nd_vars);
+    const auto& co_dhS = get<
+        ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
+        co_vars);
+    // double max_diff_hS = 0., max_diff_dhS = 0.;
+    // size_t max_j_hS = 0, max_j_dhS = 0;
+    // for (size_t i = 0; i < nd_hS.size(); ++i)
+    //   for (size_t j = 0; j < nd_hS[i].size(); ++j) {
+    //     const double diff = std::abs(nd_hS[i][j] - co_hS[i][j]);
+    //     if (diff > max_diff_hS) {
+    //       max_diff_hS = diff;
+    //       max_j_hS = j;
+    //     }
+    //   }
+    // for (size_t a1 = 0; a1 < 4; ++a1)
+    //   for (size_t b = 0; b <= a1; ++b)
+    //     for (size_t j = 0; j < nd_dhS.get(0, a1, b).size(); ++j) {
+    //       const double diff =
+    //           std::abs(nd_dhS.get(0, a1, b)[j] - co_dhS.get(0, a1, b)[j]);
+    //       if (diff > max_diff_dhS) {
+    //         max_diff_dhS = diff;
+    //         max_j_dhS = j;
+    //       }
+    //     }
+    // printf(
+    //     "Test 2 Left:   max|hS diff|=%.3e at cos_theta=%.4f"
+    //     "  max|dhS/dr diff|=%.3e at cos_theta=%.4f\n",
+    //     max_diff_hS, get<1>(x_left)[max_j_hS], max_diff_dhS,
+    //     get<1>(x_left)[max_j_dhS]);
+    // printf("# Test2_Left cos_theta  abs_hS_diff  abs_dhS_dr_diff\n");
+    // for (size_t j = 0; j < nd_hS[0].size(); ++j) {
+    //   double diff_hS_j = 0., diff_dhS_j = 0.;
+    //   for (size_t i = 0; i < nd_hS.size(); ++i)
+    //     diff_hS_j = std::max(diff_hS_j, std::abs(nd_hS[i][j] - co_hS[i][j]));
+    //   for (size_t a1 = 0; a1 < 4; ++a1)
+    //     for (size_t b = 0; b <= a1; ++b)
+    //       diff_dhS_j = std::max(diff_dhS_j, std::abs(nd_dhS.get(0, a1, b)[j]
+    //       -
+    //                                                  co_dhS.get(0, a1,
+    //                                                  b)[j]));
+    //   printf("%.6e  %.6e  %.6e\n", get<1>(x_left)[j], diff_hS_j, diff_dhS_j);
+    // }
+    // // for (size_t i = 0; i < nd_hS.size(); ++i) {
+    // //   CHECK_ITERABLE_CUSTOM_APPROX(nd_hS[i], co_hS[i], approx);
+    // // }
+    // CHECK(max_diff_hS < 1.e-3);
+    // CHECK(max_diff_dhS < 1.e-3);
     for (size_t i = 0; i < nd_hS.size(); ++i) {
       CHECK_ITERABLE_CUSTOM_APPROX(nd_hS[i], co_hS[i], approx);
     }
     // Only the r-derivative (index 0) is populated at Left face
     for (size_t a1 = 0; a1 < 4; ++a1) {
       for (size_t b = 0; b <= a1; ++b) {
-        CHECK_ITERABLE_CUSTOM_APPROX(nd_dhS.get(0, a1, b),
-                                     co_dhS.get(0, a1, b), approx);
+        CHECK_ITERABLE_CUSTOM_APPROX(nd_dhS.get(0, a1, b), co_dhS.get(0, a1, b),
+                                     approx);
       }
     }
   }
@@ -146,19 +218,61 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
         circular_orbit.variables(x_bot, CircularOrbit::source_tags{}, true);
     const auto& nd_hS = get<Tags::SingularField>(nd_vars);
     const auto& co_hS = get<Tags::SingularField>(co_vars);
-    const auto& nd_dhS = get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>,
-                                           Frame::Inertial>>(nd_vars);
-    const auto& co_dhS = get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>,
-                                           Frame::Inertial>>(co_vars);
+    const auto& nd_dhS = get<
+        ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
+        nd_vars);
+    const auto& co_dhS = get<
+        ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
+        co_vars);
+    // double max_diff_hS = 0., max_diff_dhS = 0.;
+    // size_t max_j_hS = 0, max_j_dhS = 0;
+    // for (size_t i = 0; i < nd_hS.size(); ++i)
+    //   for (size_t j = 0; j < nd_hS[i].size(); ++j) {
+    //     const double diff = std::abs(nd_hS[i][j] - co_hS[i][j]);
+    //     if (diff > max_diff_hS) {
+    //       max_diff_hS = diff;
+    //       max_j_hS = j;
+    //     }
+    //   }
+    // for (size_t a1 = 0; a1 < 4; ++a1)
+    //   for (size_t b = 0; b <= a1; ++b)
+    //     for (size_t j = 0; j < nd_dhS.get(1, a1, b).size(); ++j) {
+    //       const double diff =
+    //           std::abs(nd_dhS.get(1, a1, b)[j] - co_dhS.get(1, a1, b)[j]);
+    //       if (diff > max_diff_dhS) {
+    //         max_diff_dhS = diff;
+    //         max_j_dhS = j;
+    //       }
+    //     }
+    // printf(
+    //     "Test 3 Bottom: max|hS diff|=%.3e at r=%.4f"
+    //     "  max|dhS/dtheta diff|=%.3e at r=%.4f\n",
+    //     max_diff_hS, get<0>(x_bot)[max_j_hS], max_diff_dhS,
+    //     get<0>(x_bot)[max_j_dhS]);
+    // printf("# Test3_Bottom r  abs_hS_diff  abs_dhS_dtheta_diff\n");
+    // for (size_t j = 0; j < nd_hS[0].size(); ++j) {
+    //   double diff_hS_j = 0., diff_dhS_j = 0.;
+    //   for (size_t i = 0; i < nd_hS.size(); ++i)
+    //     diff_hS_j = std::max(diff_hS_j, std::abs(nd_hS[i][j] - co_hS[i][j]));
+    //   for (size_t a1 = 0; a1 < 4; ++a1)
+    //     for (size_t b = 0; b <= a1; ++b)
+    //       diff_dhS_j = std::max(diff_dhS_j, std::abs(nd_dhS.get(1, a1, b)[j]
+    //       -
+    //                                                  co_dhS.get(1, a1,
+    //                                                  b)[j]));
+    //   printf("%.6e  %.6e  %.6e\n", get<0>(x_bot)[j], diff_hS_j, diff_dhS_j);
+    // }
 
     for (size_t i = 0; i < nd_hS.size(); ++i) {
       CHECK_ITERABLE_CUSTOM_APPROX(nd_hS[i], co_hS[i], approx);
     }
     // Only the theta-derivative (index 1) is populated at Bottom face
+    // CHECK(max_diff_hS < 1.e-3);
+    // CHECK(max_diff_dhS < 1.e-3);
     for (size_t a1 = 0; a1 < 4; ++a1) {
       for (size_t b = 0; b <= a1; ++b) {
-        CHECK_ITERABLE_CUSTOM_APPROX(nd_dhS.get(1, a1, b),
-                                     co_dhS.get(1, a1, b), approx);
+        CHECK_ITERABLE_CUSTOM_APPROX(nd_dhS.get(1, a1, b), co_dhS.get(1, a1, b),
+                                     approx);
       }
     }
   }
