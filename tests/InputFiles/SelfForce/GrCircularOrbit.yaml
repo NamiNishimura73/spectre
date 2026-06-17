@@ -22,6 +22,7 @@ Background: &background
       - &t_to_u_transition 15
       - *t_to_u_transition
     PenetratingHorizon: True
+    Version: 2
 
 # Background: &background
 #   NumericData:
@@ -36,6 +37,7 @@ Background: &background
 #       - &t_to_u_transition 15
 #       - *t_to_u_transition
 #     PenetratingHorizon: True
+#     Version: 2
 #     Pi_2_Rotation: False
 
 GrSelfForce:
@@ -84,7 +86,7 @@ DomainCreator:
       # bottom row
       - LowerCornerIndex: [0, 0] # bottom left
         UpperCornerIndex: [1, 1]
-        Refinement: [ 0, 0 ]
+        Refinement: [ 0, 0 ] # CAUTION!! for m =1, use [1,0]
       - LowerCornerIndex: [1, 0] # bottom transition left
         UpperCornerIndex: [2, 1]
         Refinement: [ 0, 1 ]
@@ -100,7 +102,7 @@ DomainCreator:
       # middle row
       - LowerCornerIndex: [0, 1] # middle left
         UpperCornerIndex: [1, 2]
-        Refinement: [ 0, 0 ]
+        Refinement: [ 0, 0 ] # CAUTION!! for m =1, use [1,0]
       - LowerCornerIndex: [1, 1] # middle transition left
         UpperCornerIndex: [2, 2]
         Refinement: [ 0, 1 ]
@@ -116,7 +118,7 @@ DomainCreator:
       # top row
       - LowerCornerIndex: [0, 2] # top left
         UpperCornerIndex: [1, 3]
-        Refinement: [ 0, 0 ]
+        Refinement: [ 0, 0 ] # CAUTION!! for m =1, use [1,0]
       - LowerCornerIndex: [1, 2] # top transition left
         UpperCornerIndex: [2, 3]
         Refinement: [ 0, 1 ]

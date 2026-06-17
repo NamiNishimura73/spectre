@@ -30,6 +30,7 @@ std::pair<double, double> extract_flux(
   const double a = M * spin;
   const int m_mode = circular_orbit.m_mode_number();
   const double omega = 1. / (a + sqrt(cube(r0) / M));
+  const int version_ = circular_orbit.version();
   const auto field_on_face =
       dg::project_tensor_to_boundary(field, mesh, Direction<2>::upper_xi());
   const bool penetrating_horizon = circular_orbit.penetrating_horizon();
@@ -37,23 +38,51 @@ std::pair<double, double> extract_flux(
   const size_t num_face_pts = get<0>(face_coords).size();
   DataVector integrand_multiplier{num_face_pts};
   if (penetrating_horizon) {
-  integrand_multiplier = 1.0;
+    sin_theta = sqrt(1. - square(get<1>(face_coords)));
+    integrand_multiplier = 1.0;
   } else {
-  sin_theta = sin(get<1>(face_coords));
-  integrand_multiplier = sin_theta;
+    sin_theta = sin(get<1>(face_coords));
+    integrand_multiplier = sin_theta;
+  }
+  int n_psi7{};
+  int n_psi8{};
+  int n_psi9{};
+  if (version_ == 3) {
+    if (m_mode == 0) {
+      n_psi7 = -2;
+      n_psi8 = 0;
+      n_psi9 = 2;
+    } else if (m_mode == 1) {
+      n_psi7 = -1;
+      n_psi8 = 1;
+      n_psi9 = 3;
+    } else {
+      n_psi7 = -2 + (m_mode - 2);
+      n_psi8 = (m_mode - 2);
+      n_psi9 = 2 + (m_mode - 2);
+    }
+  } else {
+    n_psi7 = -2;
+    n_psi8 = 0;
+    n_psi9 = 2;
   }
   const double energy_flux =
       square(m_mode * omega) * 0.03125 *
       definite_integral(
-          real(square(abs(get<2, 2>(field_on_face))) +
-               4. * square(abs(get<2, 3>(field_on_face))) +
-               square(abs(get<3, 3>(field_on_face))) -
-               get<2, 2>(field_on_face) * conj(get<3, 3>(field_on_face)) -
-               conj(get<2, 2>(field_on_face)) * get<3, 3>(field_on_face)) *
+          real(square(
+                   abs(get<2, 2>(field_on_face) * pow(sin_theta, n_psi7 + 2))) +
+               4. * square(abs(get<2, 3>(field_on_face) *
+                               pow(sin_theta, n_psi8))) +
+               square(
+                   abs(get<3, 3>(field_on_face) * pow(sin_theta, n_psi9 - 2))) -
+               get<2, 2>(field_on_face) * pow(sin_theta, n_psi7 + 2) *
+                   conj(get<3, 3>(field_on_face) * pow(sin_theta, n_psi9 - 2)) -
+               conj(get<2, 2>(field_on_face) * pow(sin_theta, n_psi7 + 2)) *
+                   get<3, 3>(field_on_face) * pow(sin_theta, n_psi9 - 2)) *
               get(face_jacobian) * integrand_multiplier,
           mesh.slice_away(0));
   const double surface_area = definite_integral(
-          integrand_multiplier * get(face_jacobian), mesh.slice_away(0));
+      integrand_multiplier * get(face_jacobian), mesh.slice_away(0));
   return {energy_flux, surface_area};
 }
 

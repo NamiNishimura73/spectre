@@ -48,4 +48,22 @@ void getCreal_vr(int m, double a, double om, double r, double z, double H,
 void getCimag_vr(int m, double a, double om, double r, double z, double H,
                  double dHdr, std::array<std::array<double, 10>, 10>& Cimag);
 
+void getAreal_vrz(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Areal);
+
+void getAimag_vrz(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Aimag);
+
+void getBreal_vrz(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Breal);
+
+void getBimag_vrz(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Bimag);
+
+void getCreal_vrz(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Creal);
+
+void getCimag_vrz(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Cimag);
+
 }  // namespace GrSelfForce::detail

@@ -55,13 +55,20 @@ CircularOrbit::CircularOrbit(const double black_hole_mass,
                              const int m_mode_number,
                              const std::optional<std::array<double, 4>>&
                                  hyperboloidal_slicing_transitions,
-                             const bool penetrating_horizon)
+                             const bool penetrating_horizon, const int version)
     : black_hole_mass_(black_hole_mass),
       black_hole_spin_(black_hole_spin),
       orbital_radius_(orbital_radius),
       m_mode_number_(m_mode_number),
       hyperboloidal_slicing_transitions_(hyperboloidal_slicing_transitions),
-      penetrating_horizon_(penetrating_horizon) {
+      penetrating_horizon_(penetrating_horizon),
+      version_(version) {
+  if (version_ != 2 and version_ != 3) {
+    ERROR("Version must be 2 or 3, but got " << version_ << ".");
+  }
+  if (not penetrating_horizon_) {
+    ERROR("Version " << version_ << " requires PenetratingHorizon to be true.");
+  }
   if (penetrating_horizon_ and
       not hyperboloidal_slicing_transitions_.has_value()) {
     ERROR(
@@ -172,19 +179,33 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
     const auto [H, dH] = boost_function_and_deriv<1>(
         r, hyperboloidal_slicing_transitions_.value());
     for (size_t i = 0; i < r.size(); i++) {
-      detail::getAreal_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                          cos_theta[i], H[i], dH[i], Areal_vr);
-      detail::getAimag_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                          cos_theta[i], H[i], dH[i], Aimag_vr);
-      detail::getBreal_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                          cos_theta[i], H[i], dH[i], Breal_vr);
-      detail::getBimag_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                          cos_theta[i], H[i], dH[i], Bimag_vr);
-      detail::getCreal_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                          cos_theta[i], H[i], dH[i], Creal_vr);
-      detail::getCimag_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                          cos_theta[i], H[i], dH[i], Cimag_vr);
-
+      if (version_ == 2) {
+        detail::getAreal_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                            cos_theta[i], H[i], dH[i], Areal_vr);
+        detail::getAimag_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                            cos_theta[i], H[i], dH[i], Aimag_vr);
+        detail::getBreal_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                            cos_theta[i], H[i], dH[i], Breal_vr);
+        detail::getBimag_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                            cos_theta[i], H[i], dH[i], Bimag_vr);
+        detail::getCreal_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                            cos_theta[i], H[i], dH[i], Creal_vr);
+        detail::getCimag_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                            cos_theta[i], H[i], dH[i], Cimag_vr);
+      } else if (version_ == 3) {
+        detail::getAreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Areal_vr);
+        detail::getAimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Aimag_vr);
+        detail::getBreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Breal_vr);
+        detail::getBimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Bimag_vr);
+        detail::getCreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Creal_vr);
+        detail::getCimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Cimag_vr);
+      }
       // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
       for (size_t a1 = 0; a1 < 4; ++a1) {
         for (size_t b = 0; b <= a1; ++b) {
@@ -423,20 +444,37 @@ CircularOrbit::variables(
                          dhS_dth_im.data(), dhS_dph_re.data(),
                          dhS_dph_im.data(), dhS_dt_re.data(), dhS_dt_im.data(),
                          src_re.data(), src_im.data());
-        detail::convert_effsource_psi_vr(m_mode_number_, a, r[i],
-                                         theta_or_cos_theta[i], hS_re, hS_im,
-                                         hS_conv_re, hS_conv_im);
-        detail::convert_effsource_dpsidz_vr(
-            m_mode_number_, a, r[i], theta_or_cos_theta[i], hS_re, hS_im,
-            dhS_dth_re, dhS_dth_im, dhS_dth_or_dcos_re_conv,
-            dhS_dth_or_dcos_im_conv);
-        detail::convert_effsource_dpsidr_vr(
-            m_mode_number_, a, r[i], theta_or_cos_theta[i], hS_re, hS_im,
-            dhS_dr_re, dhS_dr_im, dhS_drstar_or_dr_re_conv,
-            dhS_drstar_or_dr_im_conv);
-        detail::convert_effsource_Seff_vr(m_mode_number_, a, r[i],
-                                          theta_or_cos_theta[i], src_re, src_im,
-                                          src_conv_re, src_conv_im);
+        if (version_ == 2) {
+          detail::convert_effsource_psi_vr(m_mode_number_, a, r[i],
+                                           theta_or_cos_theta[i], hS_re, hS_im,
+                                           hS_conv_re, hS_conv_im);
+          detail::convert_effsource_dpsidz_vr(
+              m_mode_number_, a, r[i], theta_or_cos_theta[i], hS_re, hS_im,
+              dhS_dth_re, dhS_dth_im, dhS_dth_or_dcos_re_conv,
+              dhS_dth_or_dcos_im_conv);
+          detail::convert_effsource_dpsidr_vr(
+              m_mode_number_, a, r[i], theta_or_cos_theta[i], hS_re, hS_im,
+              dhS_dr_re, dhS_dr_im, dhS_drstar_or_dr_re_conv,
+              dhS_drstar_or_dr_im_conv);
+          detail::convert_effsource_Seff_vr(m_mode_number_, a, r[i],
+                                            theta_or_cos_theta[i], src_re,
+                                            src_im, src_conv_re, src_conv_im);
+        } else if (version_ == 3) {
+          detail::convert_effsource_psi_vrz(m_mode_number_, a, r[i],
+                                            theta_or_cos_theta[i], hS_re, hS_im,
+                                            hS_conv_re, hS_conv_im);
+          detail::convert_effsource_dpsidz_vrz(
+              m_mode_number_, a, r[i], theta_or_cos_theta[i], hS_re, hS_im,
+              dhS_dth_re, dhS_dth_im, dhS_dth_or_dcos_re_conv,
+              dhS_dth_or_dcos_im_conv);
+          detail::convert_effsource_dpsidr_vrz(
+              m_mode_number_, a, r[i], theta_or_cos_theta[i], hS_re, hS_im,
+              dhS_dr_re, dhS_dr_im, dhS_drstar_or_dr_re_conv,
+              dhS_drstar_or_dr_im_conv);
+          detail::convert_effsource_Seff_vrz(m_mode_number_, a, r[i],
+                                             theta_or_cos_theta[i], src_re,
+                                             src_im, src_conv_re, src_conv_im);
+        }
         // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
         for (size_t a1 = 0; a1 < 4; ++a1) {
           for (size_t b = 0; b <= a1; ++b) {
@@ -517,6 +555,7 @@ void CircularOrbit::pup(PUP::er& p) {
   p | m_mode_number_;
   p | hyperboloidal_slicing_transitions_;
   p | penetrating_horizon_;
+  p | version_;
 }
 
 bool operator==(const CircularOrbit& lhs, const CircularOrbit& rhs) {
@@ -526,7 +565,8 @@ bool operator==(const CircularOrbit& lhs, const CircularOrbit& rhs) {
          lhs.m_mode_number_ == rhs.m_mode_number_ and
          lhs.hyperboloidal_slicing_transitions_ ==
              rhs.hyperboloidal_slicing_transitions_ and
-         lhs.penetrating_horizon_ == rhs.penetrating_horizon_;
+         lhs.penetrating_horizon_ == rhs.penetrating_horizon_ and
+         lhs.version_ == rhs.version_;
 }
 
 bool operator!=(const CircularOrbit& lhs, const CircularOrbit& rhs) {

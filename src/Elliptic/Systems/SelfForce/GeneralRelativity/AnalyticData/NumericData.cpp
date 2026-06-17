@@ -170,7 +170,7 @@ NumericData::NumericData(
     const double black_hole_spin, const double orbital_radius,
     const int m_mode_number,
     const std::array<double, 4> hyperboloidal_slicing_transitions,
-    const bool penetrating_horizon, const bool pi_2_rotation)
+    const bool penetrating_horizon, const int version, const bool pi_2_rotation)
     : filename_(std::move(filename)),
       circular_orbit_(black_hole_mass, black_hole_spin, orbital_radius,
                       m_mode_number,
@@ -178,7 +178,7 @@ NumericData::NumericData(
                          hyperboloidal_slicing_transitions[1],
                          hyperboloidal_slicing_transitions[2],
                          hyperboloidal_slicing_transitions[3]}}},
-                      penetrating_horizon),
+                      penetrating_horizon, version),
       pi_2_rotation_(pi_2_rotation) {
   interpolators_ = load_all_data(filename_);
   boundary_interpolators_ = load_all_boundary_data(filename_);
@@ -221,6 +221,7 @@ NumericData::variables(
     const bool field_is_regularized) const {
   const double black_hole_spin_ = circular_orbit_.black_hole_spin();
   const double black_hole_mass_ = circular_orbit_.black_hole_mass();
+  const int version_ = circular_orbit_.version();
   // const double orbital_radius_ = circular_orbit_.orbital_radius();
   const int m_mode_number_ = circular_orbit_.m_mode_number();
   const double a = black_hole_spin_ * black_hole_mass_;
@@ -320,10 +321,18 @@ NumericData::variables(
         gsl::at(src_im_arr, k) = rotated.imag();
       }
     }
-    // Convert from BL frame to VR (comoving ingoing EF) frame
-    detail::convert_effsource_Seff_vr(m_mode_number_, a, r[i], get<1>(x)[i],
-                                      src_re_arr, src_im_arr, src_conv_re,
-                                      src_conv_im);
+    if (version_ == 2) {
+      // Convert from BL frame to VR (comoving ingoing EF) frame
+      detail::convert_effsource_Seff_vr(m_mode_number_, a, r[i], get<1>(x)[i],
+                                        src_re_arr, src_im_arr, src_conv_re,
+                                        src_conv_im);
+    } else if (version_ == 3) {
+      // Convert from BL frame to VR (comoving ingoing EF) frame
+      detail::convert_effsource_Seff_vrz(m_mode_number_, a, r[i], get<1>(x)[i],
+                                         src_re_arr, src_im_arr, src_conv_re,
+                                         src_conv_im);
+    }
+
     // Store into SpECTRE lower-triangular ordering
     for (size_t a1 = 0; a1 < 4; ++a1) {
       for (size_t b = 0; b <= a1; ++b) {
@@ -401,20 +410,43 @@ NumericData::variables(
           dhS_im_arr[k] = rotated_dhS.imag();
         }
       }
-      detail::convert_effsource_psi_vr(m_mode_number_, a, r[i], get<1>(x)[i],
-                                       hS_re_arr, hS_im_arr, hS_conv_re,
-                                       hS_conv_im);
+      if (version_ == 2) {
+        detail::convert_effsource_psi_vr(m_mode_number_, a, r[i], get<1>(x)[i],
+                                         hS_re_arr, hS_im_arr, hS_conv_re,
+                                         hS_conv_im);
+      } else if (version_ == 3) {
+        detail::convert_effsource_psi_vrz(m_mode_number_, a, r[i], get<1>(x)[i],
+                                          hS_re_arr, hS_im_arr, hS_conv_re,
+                                          hS_conv_im);
+      }
+
       if (on_left or on_right) {
-        // Left/Right: normal is r, columns 20-39 are dr derivative
-        detail::convert_effsource_dpsidr_vr(
-            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
-            dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+        if (version_ == 2) {
+          // Left/Right: normal is r, columns 20-39 are dr derivative
+          detail::convert_effsource_dpsidr_vr(
+              m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+              dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+        } else if (version_ == 3) {
+          // Left/Right: normal is r, columns 20-39 are dr derivative
+          detail::convert_effsource_dpsidr_vrz(
+              m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+              dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+        }
+
       } else {
-        // Bottom/Top: normal is theta, columns 20-39 are dtheta derivative;
-        // conversion also maps d/dtheta -> d/d(cos_theta)
-        detail::convert_effsource_dpsidz_vr(
-            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
-            dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+        if (version_ == 2) {
+          // Bottom/Top: normal is theta, columns 20-39 are dtheta derivative;
+          // conversion also maps d/dtheta -> d/d(cos_theta)
+          detail::convert_effsource_dpsidz_vr(
+              m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+              dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+        } else if (version_ == 3) {
+          // Bottom/Top: normal is theta, columns 20-39 are dtheta derivative;
+          // conversion also maps d/dtheta -> d/d(cos_theta)
+          detail::convert_effsource_dpsidz_vrz(
+              m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+              dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+        }
       }
       for (size_t a1 = 0; a1 < 4; ++a1) {
         for (size_t b = 0; b <= a1; ++b) {
