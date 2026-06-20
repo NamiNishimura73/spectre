@@ -81,7 +81,7 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
   using analytic_tags_list = tmpl::push_back<
       typename fixed_sources_tag::tags_list, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<Dim>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius>;
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>;
 
  public:  // Iterable action
   using const_global_cache_tags =
@@ -90,7 +90,8 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
   using simple_tags =
       tmpl::list<fixed_sources_tag, singular_vars_tag,
                  ::Tags::Mortars<singular_vars_on_mortars_tag, Dim>,
-                 Tags::BoyerLindquistRadius, Tags::FieldIsRegularized,
+                 Tags::BoyerLindquistRadius,  Tags::RawEffSource,
+                 Tags::EF_EffSource, Tags::FieldIsRegularized,
                  ::Tags::Mortars<Tags::FieldIsRegularized, Dim>>;
   using compute_tags = tmpl::list<>;
 
@@ -124,6 +125,8 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
           DirectionalIdMap<Dim, typename singular_vars_on_mortars_tag::type>*>
           singular_vars_on_mortars,
       const gsl::not_null<Scalar<DataVector>*> bl_radius,
+      const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> raw_eff_source,
+      const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> ef_eff_source,
       const gsl::not_null<bool*> field_is_regularized,
       const gsl::not_null<DirectionalIdMap<Dim, bool>*>
           neighbors_field_is_regularized,
@@ -177,6 +180,8 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
                 get<::Tags::deriv<Tags::SingularField, tmpl::size_t<Dim>,
                                   Frame::Inertial>>(vars);
             *bl_radius = get<Tags::BoyerLindquistRadius>(vars);
+            *raw_eff_source = get<Tags::RawEffSource>(vars);
+            *ef_eff_source = get<Tags::EF_EffSource>(vars);
             if (massive) {
               *fixed_sources /= get(det_inv_jacobian);
               ::dg::apply_mass_matrix(fixed_sources, mesh);
@@ -186,6 +191,8 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
             *singular_vars = Variables<typename singular_vars_tag::tags_list>{
                 num_points, 0.};
             *bl_radius = Scalar<DataVector>{num_points, 0.};
+            *raw_eff_source = tnsr::aa<ComplexDataVector, 3>(num_points, 0.);
+            *ef_eff_source = tnsr::aa<ComplexDataVector, 3>(num_points, 0.);
 
             // fixed sources: zero for CircularOrbit, RetRet data for
             // NumericData
@@ -198,6 +205,8 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
               fixed_sources->initialize(num_points);
               get<::Tags::FixedSource<Tags::MMode>>(*fixed_sources) =
                   get<::Tags::FixedSource<Tags::MMode>>(vars);
+              *raw_eff_source = get<Tags::RawEffSource>(vars);
+              *ef_eff_source = get<Tags::EF_EffSource>(vars);
               if (massive) {
                 *fixed_sources /= get(det_inv_jacobian);
                 ::dg::apply_mass_matrix(fixed_sources, mesh);

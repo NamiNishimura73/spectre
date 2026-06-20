@@ -49,7 +49,10 @@ SPECTRE_TEST_CASE("Unit.Elliptic.Systems.GrSelfForce.Tags",
   TestHelpers::db::test_simple_tag<Tags::SingularField>("SingularField");
   TestHelpers::db::test_simple_tag<Tags::BoyerLindquistRadius>(
       "BoyerLindquistRadius");
-
+  TestHelpers::db::test_simple_tag<Tags::RawEffSource>(
+      "RawEffSource");
+  TestHelpers::db::test_simple_tag<Tags::EF_EffSource>(
+      "EF_EffSource");
   test_null_slicing_tag_logic();
 }
 

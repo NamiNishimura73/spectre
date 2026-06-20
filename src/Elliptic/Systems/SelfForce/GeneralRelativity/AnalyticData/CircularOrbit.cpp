@@ -55,19 +55,18 @@ CircularOrbit::CircularOrbit(const double black_hole_mass,
                              const int m_mode_number,
                              const std::optional<std::array<double, 4>>&
                                  hyperboloidal_slicing_transitions,
-                             const bool penetrating_horizon, const int version)
+                             const bool penetrating_horizon,
+                             const std::optional<int> version)
     : black_hole_mass_(black_hole_mass),
       black_hole_spin_(black_hole_spin),
       orbital_radius_(orbital_radius),
       m_mode_number_(m_mode_number),
       hyperboloidal_slicing_transitions_(hyperboloidal_slicing_transitions),
       penetrating_horizon_(penetrating_horizon),
-      version_(version) {
-  if (version_ != 2 and version_ != 3) {
-    ERROR("Version must be 2 or 3, but got " << version_ << ".");
-  }
-  if (not penetrating_horizon_) {
-    ERROR("Version " << version_ << " requires PenetratingHorizon to be true.");
+      version_(version.value_or(0)) {
+  if (penetrating_horizon_ and (version_ != 2 and version_ != 3)) {
+    ERROR("When PenetratingHorizon is true, Version must be 2 or 3, but got "
+          << version_ << ".");
   }
   if (penetrating_horizon_ and
       not hyperboloidal_slicing_transitions_.has_value()) {
@@ -326,13 +325,14 @@ tuples::TaggedTuple<Tags::MMode> CircularOrbit::variables(
 tuples::TaggedTuple<
     ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
     ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-    Tags::BoyerLindquistRadius>
+    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
 CircularOrbit::variables(
     const tnsr::I<DataVector, 2>& x,
     tmpl::list<
         ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
         ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-        Tags::BoyerLindquistRadius> /*meta*/) const {
+        Tags::BoyerLindquistRadius, Tags::RawEffSource,
+        Tags::EF_EffSource> /*meta*/) const {
   const double a = black_hole_spin_ * black_hole_mass_;
   const double M = black_hole_mass_;
   const double r_0 = orbital_radius_;
@@ -351,7 +351,7 @@ CircularOrbit::variables(
   tuples::TaggedTuple<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius>
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
       result{};
   const auto& r_star_or_r = get<0>(x);
   if (hyperboloidal_slicing_transitions_.has_value() and
@@ -400,9 +400,15 @@ CircularOrbit::variables(
       get<::Tags::FixedSource<Tags::MMode>>(result);
   tnsr::aa<ComplexDataVector, 3>& singular_field =
       get<Tags::SingularField>(result);
+  tnsr::aa<ComplexDataVector, 3>& raw_eff_source =
+      get<Tags::RawEffSource>(result);
+  tnsr::aa<ComplexDataVector, 3>& ef_eff_source =
+      get<Tags::EF_EffSource>(result);
   for (size_t i = 0; i < singular_field.size(); i++) {
     effective_source[i].destructive_resize(num_points);
     singular_field[i].destructive_resize(num_points);
+    raw_eff_source[i].destructive_resize(num_points);
+    ef_eff_source[i].destructive_resize(num_points);
   }
   auto& deriv_singular_field =
       get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
@@ -484,6 +490,13 @@ CircularOrbit::variables(
             effective_source.get(a1, b)[i] =
                 src_conv_re[comp] +
                 std::complex<double>(0., 1.) * src_conv_im[comp];
+            // Store raw effective source
+            raw_eff_source.get(a1, b)[i] =
+                src_re[comp] + std::complex<double>(0., 1.) * src_im[comp];
+            // Store EF effective source
+            ef_eff_source.get(a1, b)[i] =
+                src_conv_re[comp] +
+                std::complex<double>(0., 1.) * src_conv_im[comp];
             singular_field.get(a1, b)[i] =
                 hS_conv_re[comp] +
                 std::complex<double>(0., 1.) * hS_conv_im[comp];
@@ -526,6 +539,13 @@ CircularOrbit::variables(
                 tnsr::aa<ComplexDataVector, 3>::get_storage_index(
                     std::array<size_t, 2>{{a1, b}});
             effective_source.get(a1, b)[i] =
+                -src_conv_re[comp] -
+                std::complex<double>(0., 1.) * src_conv_im[comp];
+            // Store raw effective source
+            raw_eff_source.get(a1, b)[i] =
+                src_re[comp] + std::complex<double>(0., 1.) * src_im[comp];
+            // Store EF effective source
+            ef_eff_source.get(a1, b)[i] =
                 -src_conv_re[comp] -
                 std::complex<double>(0., 1.) * src_conv_im[comp];
             singular_field.get(a1, b)[i] =

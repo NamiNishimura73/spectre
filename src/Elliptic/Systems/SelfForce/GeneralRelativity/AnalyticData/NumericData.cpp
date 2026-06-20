@@ -211,13 +211,14 @@ tuples::TaggedTuple<Tags::MMode> NumericData::variables(
 tuples::TaggedTuple<
     ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
     ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-    Tags::BoyerLindquistRadius>
+    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
 NumericData::variables(
     const tnsr::I<DataVector, 2>& x,
     tmpl::list<
         ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
         ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-        Tags::BoyerLindquistRadius> /*meta*/,
+        Tags::BoyerLindquistRadius, Tags::RawEffSource,
+        Tags::EF_EffSource> /*meta*/,
     const bool field_is_regularized) const {
   const double black_hole_spin_ = circular_orbit_.black_hole_spin();
   const double black_hole_mass_ = circular_orbit_.black_hole_mass();
@@ -241,7 +242,7 @@ NumericData::variables(
   tuples::TaggedTuple<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius>
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
       result{};
   get(get<Tags::BoyerLindquistRadius>(result)) = r;
   const size_t num_points = get<0>(x).size();
@@ -249,9 +250,15 @@ NumericData::variables(
       get<::Tags::FixedSource<Tags::MMode>>(result);
   tnsr::aa<ComplexDataVector, 3>& singular_field =
       get<Tags::SingularField>(result);
+  tnsr::aa<ComplexDataVector, 3>& raw_eff_source =
+      get<Tags::RawEffSource>(result);
+  tnsr::aa<ComplexDataVector, 3>& ef_eff_source =
+      get<Tags::EF_EffSource>(result);
   for (size_t i = 0; i < singular_field.size(); i++) {
     effective_source[i].destructive_resize(num_points);
     singular_field[i].destructive_resize(num_points);
+    raw_eff_source[i].destructive_resize(num_points);
+    ef_eff_source[i].destructive_resize(num_points);
   }
   auto& deriv_singular_field =
       get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
@@ -338,7 +345,19 @@ NumericData::variables(
       for (size_t b = 0; b <= a1; ++b) {
         const size_t comp = tnsr::aa<ComplexDataVector, 3>::get_storage_index(
             std::array<size_t, 2>{{a1, b}});
+        // effective_source.get(a1, b)[i] =
+        //     gsl::at(src_conv_re, comp) +
+        //     std::complex<double>(0., 1.) * gsl::at(src_conv_im, comp);
+
+        // CAUTION: In CircularOrbit, we flip sign when penetrating horizon.
+        // Do we need to do that here as well?
         effective_source.get(a1, b)[i] =
+            -gsl::at(src_conv_re, comp) -
+            std::complex<double>(0., 1.) * gsl::at(src_conv_im, comp);
+        raw_eff_source.get(a1, b)[i] =
+            gsl::at(src_re_arr, comp) +
+            std::complex<double>(0., 1.) * gsl::at(src_im_arr, comp);
+        ef_eff_source.get(a1, b)[i] =
             gsl::at(src_conv_re, comp) +
             std::complex<double>(0., 1.) * gsl::at(src_conv_im, comp);
       }

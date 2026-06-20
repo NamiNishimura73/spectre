@@ -226,6 +226,8 @@ EventsAndTriggersAtIterations:
             - MMode
             - BoyerLindquistRadius
             - RadiallyCompressedCoordinates
+            - RawEffSource
+            - EF_EffSource
           BlocksToObserve: All
           InterpolateToMesh: None
           ProjectToMesh: None

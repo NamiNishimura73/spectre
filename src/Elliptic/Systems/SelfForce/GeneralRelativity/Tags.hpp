@@ -145,6 +145,24 @@ struct BoyerLindquistRadius : db::SimpleTag {
 };
 
 /*!
+ * \brief Raw effective source
+ *
+ * What effsource_calc_m computes
+ */
+struct RawEffSource : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
+/*!
+ * \brief Effective source in EF coordinate
+ *
+ * After transformation to EF coordinate
+ */
+struct EF_EffSource : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
+
+
+/*!
  * \brief Blocks in which we use null slicing (vtu-slicing).
  */
 template <size_t Dim>

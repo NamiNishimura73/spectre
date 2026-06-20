@@ -135,7 +135,7 @@ struct Metavariables {
 
 SPECTRE_TEST_CASE("Unit.GrSelfForce.Events.ObserveFlux", "[Unit][Elliptic]") {
   const GrSelfForce::AnalyticData::CircularOrbit circular_orbit{
-      1.0, 0.0, 10.0, 2, std::nullopt, false};
+      1.0, 0.0, 10.0, 2, std::nullopt, false, 2};
 
   // Domain in (r*, theta) coordinates with 2 x-elements and 1 y-element.
   // Only the right element (element_id_b) has an outer (upper_xi) boundary.

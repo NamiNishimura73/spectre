@@ -88,7 +88,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   struct Version {
     static constexpr Options::String help =
         "Version of the GrSelfForce PDE coefficients (2 or 3). "
-        "Both assume PenetratingHorizon to be true";
+        "Required when PenetratingHorizon is true.";
     using type = int;
   };
   using options = tmpl::list<BlackHoleMass, BlackHoleSpin, OrbitalRadius,
@@ -109,7 +109,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
                 const std::optional<std::array<double, 4>>&
                     hyperboloidal_slicing_transitions,
                 bool penetrating_horizon,
-                int version);
+                std::optional<int> version = std::nullopt);
 
   explicit CircularOrbit(CkMigrateMessage* m);
   using PUP::able::register_constructor;
@@ -132,7 +132,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   using source_tags = tmpl::list<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius>;
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>;
 
   // Background
   tuples::tagged_tuple_from_typelist<background_tags> variables(

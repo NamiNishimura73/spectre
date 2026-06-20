@@ -55,9 +55,9 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
 
   const NumericData numeric_data{h5_file,    bh_mass,         bh_spin,
                                  orbital_radius, m_mode, transitions,
-                                 true,      false};
+                                 true, 2, false};
   const CircularOrbit circular_orbit{bh_mass, bh_spin, orbital_radius,
-                                     m_mode, transitions, true};
+                                     m_mode, transitions, true, 2};
 
   const Approx approx = Approx::custom().epsilon(1.e-5).scale(1.);
 
@@ -85,7 +85,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
     const auto& nd_seff = get<::Tags::FixedSource<Tags::MMode>>(nd_vars);
     const auto& co_seff = get<::Tags::FixedSource<Tags::MMode>>(co_vars);
     for (size_t i = 0; i < nd_seff.size(); ++i) {
-      CHECK_ITERABLE_CUSTOM_APPROX(nd_seff[i], co_seff[i], approx);
+      CHECK_ITERABLE_CUSTOM_APPROX(nd_seff[i], - co_seff[i], approx);
     }
   }
 

@@ -60,7 +60,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
     for (int m_mode_number = 0; m_mode_number < 3; ++m_mode_number) {
       CAPTURE(m_mode_number);
       const auto circular_orbit = CircularOrbit{
-          1., 0.9, 20., m_mode_number, transitions, penetrating_horizon};
+          1., 0.9, 20., m_mode_number, transitions, penetrating_horizon, 2};
       CAPTURE(circular_orbit.puncture_position());
       const auto background =
           circular_orbit.variables(x, CircularOrbit::background_tags{});

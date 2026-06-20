@@ -110,7 +110,7 @@ SPECTRE_TEST_CASE("Unit.GrSelfForce.AmrCriteria.RefineAtPuncture",
   test_criterion(std::make_unique<GrSelfForce::AnalyticData::CircularOrbit>(
       // Only orbital radius is relevant for the test
       1.0, 0.5, /* orbital radius */ 13.0, 2,
-      std::make_optional(std::array<double, 4>{5., 10., 15., 20.}), true));
+      std::make_optional(std::array<double, 4>{5., 10., 15., 20.}), true, 2));
   CHECK_THROWS_WITH(test_criterion(std::make_unique<OtherBackground>()),
                     Catch::Matchers::ContainsSubstring(
                         "Background must be CircularOrbit or NumericData"));
