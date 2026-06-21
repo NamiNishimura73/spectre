@@ -7,6 +7,7 @@
 #include <optional>
 #include <pup.h>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -50,12 +51,20 @@
 #include "Utilities/TMPL.hpp"
 
 namespace GrSelfForce::Events {
+using DerivMMode =
+    typename ::Tags::deriv<GrSelfForce::Tags::MMode, tmpl::size_t<2>,
+                           Frame::Inertial>::type;
 
 namespace detail {
 std::pair<double, double> extract_flux(
     const AnalyticData::CircularOrbit& circular_orbit,
     const tnsr::aa<ComplexDataVector, 3>& field, const Mesh<2>& mesh,
     const Scalar<DataVector>& face_jacobian,
+    const tnsr::I<DataVector, 2, Frame::Inertial>& face_coords);
+std::tuple<double, double, double> extract_flux(
+    const AnalyticData::CircularOrbit& circular_orbit,
+    const tnsr::aa<ComplexDataVector, 3>& field, const DerivMMode& deriv_field,
+    const Mesh<2>& mesh, const Scalar<DataVector>& face_jacobian,
     const tnsr::I<DataVector, 2, Frame::Inertial>& face_coords);
 }  // namespace detail
 
@@ -71,6 +80,8 @@ class ObserveFlux : public Event {
       // Number of grid points
       Parallel::ReductionDatum<size_t, funcl::Plus<>>,
       // Energy flux
+      Parallel::ReductionDatum<double, funcl::Plus<>>,
+      // EnergyFluxFit
       Parallel::ReductionDatum<double, funcl::Plus<>>,
       // Surface area (should be 2)
       Parallel::ReductionDatum<double, funcl::Plus<>>>;
@@ -111,6 +122,7 @@ class ObserveFlux : public Event {
     const auto& element = get<domain::Tags::Element<2>>(box);
     const auto& mesh = get<domain::Tags::Mesh<2>>(box);
     double energy_flux = 0.;
+    double energy_flux_fit = 0.;
     double surface_area = 0.;
     if (element.external_boundaries().contains(direction)) {
       const auto& background = get<BackgroundTag>(box);
@@ -123,15 +135,33 @@ class ObserveFlux : public Event {
              "Background must be CircularOrbit or NumericData");
       const AnalyticData::CircularOrbit& circular_orbit =
           co_ptr ? *co_ptr : nd_ptr->circular_orbit();
-      std::tie(energy_flux, surface_area) = detail::extract_flux(
-          circular_orbit, get<Tags::MMode>(box), mesh,
-          get<domain::Tags::Faces<
-              2, domain::Tags::DetSurfaceJacobian<Frame::ElementLogical,
-                                                  Frame::Inertial>>>(box)
-              .at(direction),
-          get<domain::Tags::Faces<
-              2, domain::Tags::Coordinates<2, Frame::Inertial>>>(box)
-              .at(direction));
+      // skip first 4 AMR iterations
+      const bool compute_fit = (observation_value.value >= 4.0);
+      if (compute_fit) {
+        std::tie(energy_flux, energy_flux_fit, surface_area) =
+            detail::extract_flux(
+                circular_orbit, get<Tags::MMode>(box),
+                get<::Tags::deriv<Tags::MMode, tmpl::size_t<2>,
+                                  Frame::Inertial>>(box),
+                mesh,
+                get<domain::Tags::Faces<
+                    2, domain::Tags::DetSurfaceJacobian<Frame::ElementLogical,
+                                                        Frame::Inertial>>>(box)
+                    .at(direction),
+                get<domain::Tags::Faces<
+                    2, domain::Tags::Coordinates<2, Frame::Inertial>>>(box)
+                    .at(direction));
+      } else {
+        std::tie(energy_flux, surface_area) = detail::extract_flux(
+            circular_orbit, get<Tags::MMode>(box), mesh,
+            get<domain::Tags::Faces<
+                2, domain::Tags::DetSurfaceJacobian<Frame::ElementLogical,
+                                                    Frame::Inertial>>>(box)
+                .at(direction),
+            get<domain::Tags::Faces<
+                2, domain::Tags::Coordinates<2, Frame::Inertial>>>(box)
+                .at(direction));
+      }
     }
     // Send data to reduction observer
     auto& local_observer = *Parallel::local_branch(
@@ -147,9 +177,10 @@ class ObserveFlux : public Event {
         Parallel::ArrayIndex<ElementId<2>>(element_id)};
     ReductionData reduction_data{observation_value.value,
                                  mesh.number_of_grid_points(), energy_flux,
-                                 surface_area};
+                                 energy_flux_fit, surface_area};
     std::vector<std::string> legend{"ObservationValue", "NumberOfPoints",
-                                    "EnergyFlux", "SurfaceArea"};
+                                    "EnergyFlux", "EnergyFluxFit",
+                                    "SurfaceArea"};
     if constexpr (Parallel::is_nodegroup_v<ParallelComponent>) {
       Parallel::threaded_action<
           observers::ThreadedActions::CollectReductionDataOnNode>(

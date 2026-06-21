@@ -55,6 +55,7 @@ struct MockContributeReductionData {
     double iteration_id{};
     size_t num_grid_points{};
     double energy_flux{};
+    double energy_flux_fit{};
     double surface_area{};
   };
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -87,7 +88,8 @@ struct MockContributeReductionData {
     results.iteration_id = std::get<0>(reduction_data.data());
     results.num_grid_points = std::get<1>(reduction_data.data());
     results.energy_flux = std::get<2>(reduction_data.data());
-    results.surface_area = std::get<3>(reduction_data.data());
+    results.energy_flux_fit = std::get<3>(reduction_data.data());
+    results.surface_area = std::get<4>(reduction_data.data());
   }
 };
 
@@ -159,6 +161,9 @@ SPECTRE_TEST_CASE("Unit.GrSelfForce.Events.ObserveFlux", "[Unit][Elliptic]") {
   // Zero field: energy_flux = 0. Surface area tests the boundary integral.
   const tnsr::aa<ComplexDataVector, 3> field{mesh.number_of_grid_points(),
                                              std::complex<double>{0., 0.}};
+  const GrSelfForce::Events::DerivMMode deriv_field{
+      mesh.number_of_grid_points(), std::complex<double>{0., 0.}};
+
   const GrSelfForce::Events::ObserveFlux event{};
 
   using face_jac_tag = domain::Tags::Faces<
@@ -194,12 +199,15 @@ SPECTRE_TEST_CASE("Unit.GrSelfForce.Events.ObserveFlux", "[Unit][Elliptic]") {
     auto box = db::create<tmpl::list<
         elliptic::Tags::Background<elliptic::analytic_data::Background>,
         domain::Tags::Element<2>, domain::Tags::Mesh<2>, face_jac_tag,
-        face_coords_tag, GrSelfForce::Tags::MMode>>(
+        face_coords_tag,
+        ::Tags::deriv<GrSelfForce::Tags::MMode, tmpl::size_t<2>,
+                      Frame::Inertial>,
+        GrSelfForce::Tags::MMode>>(
         std::unique_ptr<elliptic::analytic_data::Background>(
             std::make_unique<GrSelfForce::AnalyticData::CircularOrbit>(
                 circular_orbit)),
         std::move(element), mesh, std::move(face_jac_map),
-        std::move(face_coords_map), field);
+        std::move(face_coords_map), deriv_field, field);
     auto obs_box =
         make_observation_box<db::AddComputeTags<>>(make_not_null(&box));
     event.run(make_not_null(&obs_box),
@@ -219,7 +227,7 @@ SPECTRE_TEST_CASE("Unit.GrSelfForce.Events.ObserveFlux", "[Unit][Elliptic]") {
   CHECK(results.subfile_name == "Flux.dat");
   CHECK(results.legend ==
         std::vector<std::string>{"ObservationValue", "NumberOfPoints",
-                                 "EnergyFlux", "SurfaceArea"});
+                                 "EnergyFlux", "EnergyFluxFit", "SurfaceArea"});
   CHECK(results.iteration_id == 1.0);
   CHECK(results.num_grid_points == 2 * mesh.number_of_grid_points());
   CHECK(results.energy_flux == approx(0.0));

@@ -28,6 +28,7 @@
 #include "IO/Observer/Actions/RegisterEvents.hpp"
 #include "IO/Observer/Helpers.hpp"
 #include "IO/Observer/ObserverComponent.hpp"
+#include "NumericalAlgorithms/LinearOperators/PartialDerivatives.hpp"
 #include "Options/Protocols/FactoryCreation.hpp"
 #include "Options/String.hpp"
 #include "Parallel/Phase.hpp"
@@ -78,12 +79,18 @@ struct Metavariables {
       typename solver::observe_fields,
       tmpl::list<domain::Tags::Coordinates<volume_dim, Frame::Inertial>,
                  domain::Tags::RadiallyCompressedCoordinatesCompute<
-                     2, Frame::Inertial, tmpl::size_t<0>>>>;
-  using observer_compute_tags =
-      tmpl::list<::Events::Tags::ObserverMeshCompute<volume_dim>,
-                 ::Events::Tags::ObserverDetInvJacobianCompute<
-                     Frame::ElementLogical, Frame::Inertial>>;
+                     2, Frame::Inertial, tmpl::size_t<0>>,
+                 ::Tags::deriv<GrSelfForce::Tags::MMode, tmpl::size_t<2>,
+                               Frame::Inertial>>>;
 
+  using observer_compute_tags = tmpl::list<
+      ::Events::Tags::ObserverMeshCompute<volume_dim>,
+      ::Events::Tags::ObserverDetInvJacobianCompute<Frame::ElementLogical,
+                                                    Frame::Inertial>,
+      ::Tags::DerivTensorCompute<GrSelfForce::Tags::MMode,
+                                 ::domain::Tags::InverseJacobian<
+                                     2, Frame::ElementLogical, Frame::Inertial>,
+                                 ::domain::Tags::Mesh<2>>>;
   // Collect all items to store in the cache.
   using const_global_cache_tags =
       tmpl::list<domain::Tags::RadiallyCompressedCoordinatesOptions>;
