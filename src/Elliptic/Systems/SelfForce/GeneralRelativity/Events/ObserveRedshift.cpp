@@ -54,23 +54,53 @@ std::optional<std::complex<double>> extract_redshift(
   const double omega = 1. / (a + sqrt(cube(r0) / M));
   const double delta = square(r0) - 2.0 * M * r0 + a * a;
   const double sigma = square(r0);
+  const bool penetrating_horizon = circular_orbit.penetrating_horizon();
   tnsr::aa<double, 3> kerr_metric{0.0};
   get<0, 0>(kerr_metric) = -(1.0 - 2.0 * M * r0 / sigma);
-  get<0, 3>(kerr_metric) = -4.0 * M * a * r0 / sigma;
+  get<0, 3>(kerr_metric) = -4.0 * M * a * r0 / sigma; //?? Is this -2.0 * M * a * r0 / sigma ?????? 
   get<1, 1>(kerr_metric) = sigma / delta;
   get<2, 2>(kerr_metric) = sigma;
   get<3, 3>(kerr_metric) =
       (square(r0) + square(a) + 2.0 * M * square(a) * r0 / sigma);
   const auto inv_kerr_metric = determinant_and_inverse(kerr_metric).second;
-  auto hbar = field_at_puncture;
-  get<0, 0>(hbar) *= 1.0 / r0;
-  get<0, 1>(hbar) *= r0 / delta;
-  get<1, 1>(hbar) *= cube(r0) / square(delta);
-  get<1, 2>(hbar) *= square(r0) / delta;
-  get<1, 3>(hbar) *= square(r0) / delta;
-  get<2, 2>(hbar) *= r0;
-  get<2, 3>(hbar) *= r0;
-  get<3, 3>(hbar) *= r0;
+    tnsr::aa<std::complex<double>, 3> hbar{};
+    if (penetrating_horizon) {
+      auto hbar_EF = field_at_puncture;
+      get<0, 0>(hbar_EF) *= 1.0 / r0;
+      get<0, 1>(hbar_EF) *= 1.0 / r0;
+      get<1, 1>(hbar_EF) *= 1.0 / r0;
+      get<2, 2>(hbar_EF) *= r0;
+      get<2, 3>(hbar_EF) *= r0;
+      get<3, 3>(hbar_EF) *= r0;
+
+      const double factor_F = (r0*r0 + a*a)/delta; 
+      // hBL_rr = F^2 hEF_vv + 2 F hEF_vr + hEF_rr
+      get<1, 1>(hbar)  = get<0, 0>(hbar_EF)*factor_F*factor_F + 2*factor_F*get<0, 1>(hbar_EF)+get<1, 1>(hbar_EF);
+      // hBL_tr = F hEF_vv + hEF_vr 
+      get<0, 1>(hbar)  = get<0, 0>(hbar_EF)*factor_F + get<0, 1>(hbar_EF);
+      // hBL_r\theta = F*hEF_v\theta + hEF_r\theta 
+      get<1, 2>(hbar) = get<0, 2>(hbar_EF)*factor_F  + get<1, 2>(hbar_EF);
+      // hBL_r\phi = F* hEF_v\phi + hEF_r\phi 
+      get<1, 3>(hbar) = get<0, 3>(hbar_EF)*factor_F  + get<1, 3>(hbar_EF);
+
+      // rest are the same 
+      get<0, 0>(hbar) = get<0, 0>(hbar_EF);
+      get<0, 2>(hbar) = get<0, 2>(hbar_EF);
+      get<0, 3>(hbar) = get<0, 3>(hbar_EF);
+      get<2, 2>(hbar) = get<2, 2>(hbar_EF);
+      get<2, 3>(hbar) = get<2, 3>(hbar_EF);
+      get<3, 3>(hbar) = get<3, 3>(hbar_EF);
+    } else {
+      hbar = field_at_puncture;
+      get<0, 0>(hbar) *= 1.0 / r0;
+      get<0, 1>(hbar) *= r0 / delta;
+      get<1, 1>(hbar) *= cube(r0) / square(delta);
+      get<1, 2>(hbar) *= square(r0) / delta;
+      get<1, 3>(hbar) *= square(r0) / delta;
+      get<2, 2>(hbar) *= r0;
+      get<2, 3>(hbar) *= r0;
+      get<3, 3>(hbar) *= r0;
+    }
   const auto trace_hbar =
       tenex::evaluate(hbar(ti::a, ti::b) * inv_kerr_metric(ti::A, ti::B));
   const auto h = tenex::evaluate<ti::a, ti::b>(

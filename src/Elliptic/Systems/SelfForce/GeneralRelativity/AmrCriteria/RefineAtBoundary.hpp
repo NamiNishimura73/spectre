@@ -68,12 +68,17 @@ class RefineAtBoundary : public amr::Criterion {
       const ElementId<2>& /*element_id*/) const {
     const auto& external_boundaries = element.external_boundaries();
     auto result = make_array<2>(amr::Flag::DoNothing);
-    if (external_boundaries.count(Direction<2>{DimToRefine, Side::Lower}) ==
-            1 or
-        external_boundaries.count(Direction<2>{DimToRefine, Side::Upper}) ==
-            1) {
-      get<DimToRefine>(result) = amr::Flag::Split;
-    }
+    if constexpr (DimToRefine == 0) {
+          // Radial Direction: only refine near the horizon
+          if (external_boundaries.count(Direction<2>{0, Side::Lower}) == 1) {
+            get<0>(result) = amr::Flag::Split;
+          }
+        } else {
+          if (external_boundaries.count(Direction<2>{1, Side::Lower}) == 1 or
+              external_boundaries.count(Direction<2>{1, Side::Upper}) == 1) {
+            get<1>(result) = amr::Flag::Split;
+          }
+        }
     return result;
   }
 };
