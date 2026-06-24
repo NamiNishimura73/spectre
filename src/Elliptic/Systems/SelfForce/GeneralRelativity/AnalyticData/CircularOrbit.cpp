@@ -100,6 +100,16 @@ double CircularOrbit::omega() const {
   return 1. / (a + sqrt(cube(r_0) / M));
 }
 
+DataVector CircularOrbit::hyperboloidal_boost_function(
+    const DataVector& r_star_or_r) const {
+  if (not hyperboloidal_slicing_transitions_.has_value()) {
+    return DataVector(r_star_or_r.size(), 0.0);
+  }
+  return boost_function_and_deriv<1>(
+             r_star_or_r, hyperboloidal_slicing_transitions_.value())
+      .first;
+}
+
 // Background
 tuples::TaggedTuple<Tags::Alpha, Tags::Beta, Tags::GammaRstar, Tags::GammaTheta>
 CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
@@ -167,7 +177,6 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
   const ComplexDataVector temp1 =
       1. / r * std::complex<double>(0., 2. * a * m_mode_number_);
   // tt, tr, ttheta, tphi, rr, rtheta, rphi, theta theta, theta phi, phi phi
-
   if (penetrating_horizon_) {
     std::array<std::array<double, 10>, 10> Areal_vr{};
     std::array<std::array<double, 10>, 10> Aimag_vr{};

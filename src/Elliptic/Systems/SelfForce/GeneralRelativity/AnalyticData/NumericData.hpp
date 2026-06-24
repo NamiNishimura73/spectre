@@ -136,6 +136,9 @@ class NumericData : public elliptic::analytic_data::Background,
 
   tnsr::I<double, 2> puncture_position() const;
   const CircularOrbit& circular_orbit() const { return circular_orbit_; }
+  const auto& hyperboloidal_slicing_transitions() const {
+      return circular_orbit_.hyperboloidal_slicing_transitions();
+  }
 
   using background_tags =
       tmpl::list<Tags::Alpha, Tags::Beta, Tags::GammaRstar, Tags::GammaTheta>;

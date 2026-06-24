@@ -125,6 +125,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   hyperboloidal_slicing_transitions() const {
     return hyperboloidal_slicing_transitions_;
   }
+  DataVector hyperboloidal_boost_function(const DataVector& r) const;
   bool penetrating_horizon() const { return penetrating_horizon_; }
   int version() const { return version_; }
   using background_tags =

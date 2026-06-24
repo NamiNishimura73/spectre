@@ -21,6 +21,7 @@
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/BoundaryConditions/None.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/BoundaryConditions/Sommerfeld.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Events/ObserveFlux.hpp"
+#include "Elliptic/Systems/SelfForce/GeneralRelativity/LorenzGaugeConditions.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Events/ObserveRedshift.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/FirstOrderSystem.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Tags.hpp"
@@ -75,7 +76,11 @@ struct Metavariables {
       tmpl::list<GrSelfForce::Tags::SingularField,
                  GrSelfForce::Tags::BoyerLindquistRadius,
                  GrSelfForce::Tags::RawEffSource,
-                 GrSelfForce::Tags::EF_EffSource>,
+                 GrSelfForce::Tags::EF_EffSource,
+                 GrSelfForce::Tags::LorenzGaugeCondition,
+                 GrSelfForce::Tags::LorenzGaugeConditionVSlicing,
+                 GrSelfForce::Tags::LorenzGaugeConditionTSlicing,
+                 GrSelfForce::Tags::LorenzGaugeConditionUSlicing>,
       typename solver::observe_fields,
       tmpl::list<domain::Tags::Coordinates<volume_dim, Frame::Inertial>,
                  domain::Tags::RadiallyCompressedCoordinatesCompute<
@@ -90,7 +95,11 @@ struct Metavariables {
       ::Tags::DerivTensorCompute<GrSelfForce::Tags::MMode,
                                  ::domain::Tags::InverseJacobian<
                                      2, Frame::ElementLogical, Frame::Inertial>,
-                                 ::domain::Tags::Mesh<2>>>;
+                                 ::domain::Tags::Mesh<2>>,
+      GrSelfForce::Tags::LorenzGaugeConditionCompute,
+      GrSelfForce::Tags::LorenzGaugeConditionVSlicingCompute,
+      GrSelfForce::Tags::LorenzGaugeConditionTSlicingCompute,
+      GrSelfForce::Tags::LorenzGaugeConditionUSlicingCompute>;
   // Collect all items to store in the cache.
   using const_global_cache_tags =
       tmpl::list<domain::Tags::RadiallyCompressedCoordinatesOptions>;
