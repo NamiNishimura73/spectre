@@ -94,7 +94,6 @@ CircularOrbit::variables(
   const double r_minus = M * (1. - sqrt(1. - square(black_hole_spin_)));
   const double omega = this->omega();
   const double k = m_mode_number_ * omega;
-
   // Resolve coordinates
   const auto& r_star_or_r = get<0>(x);
   DataVector r;
@@ -138,48 +137,116 @@ CircularOrbit::variables(
     H = make_with_value<ComplexDataVector>(r_star_or_r, 0.);
     dH = make_with_value<ComplexDataVector>(r_star_or_r, 0.);
   }
+  // Identify u_slicing_region
+  const bool in_u_region =
+      penetrating_horizon_ and r[0] > (*hyperboloidal_slicing_transitions_)[3];
+  // The t-u block boundary must coincide with the point where H fully
+  // saturates to +1, i.e. the same threshold used for in_u_region above.
+  // Unused (and left at a harmless finite placeholder) when
+  // penetrating_horizon_ is false, since in_u_region is unconditionally
+  // false in that case and r_u is never consumed.
+  const double r_u =
+      penetrating_horizon_ ? (*hyperboloidal_slicing_transitions_)[3] : 0.0;
+
+  DataVector inv_r{};
+  if (in_u_region) {
+    inv_r = (2.0 * r_u - r) / (r_u * r_u);
+  } else {
+    inv_r = 1.0 / r;
+  }
+
   auto& alpha = get<Tags::Alpha>(result);
   auto& beta = get<Tags::Beta>(result);
   auto& gamma = get<Tags::Gamma>(result);
+  const DataVector one_plus_a_sq_inv_r_sq = 1.0 + square(a) * square(inv_r);
+  const DataVector delta_over_r_sq = one_plus_a_sq_inv_r_sq - 2.0 * M * inv_r;
+  const DataVector one_over_r_sq_plus_a_sq =
+      square(inv_r) / one_plus_a_sq_inv_r_sq;
+  const DataVector r_over_r_sq_plus_a_sq = inv_r / one_plus_a_sq_inv_r_sq;
+  const DataVector sigma_sq_over_r_sq_plus_a_sq_sq =
+      1.0 - square(a) * square(inv_r) * delta_over_r_sq * sin_theta_squared /
+                square(one_plus_a_sq_inv_r_sq);
+  // dsigma_dr = d(sigma)/dr for sigma = 2*r_u - r_u^2/r, evaluated using
+  // inv_r = 1/r. Needed to rescale the equations from d/dr to d/dsigma in
+  // the u-region: alpha[0] -> alpha[0] * dsigma_dr, alpha[1] -> alpha[1] /
+  // dsigma_dr. Beta and Gamma[1] pick up the correct rescaling automatically
+  // since they're built from alpha[0]/alpha[1]; Gamma[0] is unchanged.
+  const DataVector dsigma_dr = square(r_u) * square(inv_r);
+
   if (penetrating_horizon_) {
-    get<0>(alpha) = delta / r_sq_plus_a_sq;
-    get<1>(alpha) = 1.0 / r_sq_plus_a_sq;
+    if (in_u_region) {
+      get<0>(alpha) = (delta_over_r_sq / one_plus_a_sq_inv_r_sq) * dsigma_dr;
+      get<1>(alpha) = (square(inv_r) / one_plus_a_sq_inv_r_sq) / dsigma_dr;
+    } else {
+      get<0>(alpha) = delta / r_sq_plus_a_sq;
+      get<1>(alpha) = 1.0 / r_sq_plus_a_sq;
+    }
   } else {
     get<0>(alpha) = make_with_value<DataVector>(r_star_or_r, 1.0);
     get<1>(alpha) = delta / r_sq_plus_a_sq_sq;
   }
   get(beta) = make_with_value<ComplexDataVector>(r_star_or_r, 0.);
+
   for (size_t p = 0; p < get(beta).size(); ++p) {
     if (penetrating_horizon_ and equal_within_roundoff(r[p], r_plus)) {
       // The following terms are zero at the horizon. Skip them to avoid
       // division by zero.
       continue;
     }
-    get(beta)[p] =
-        square(k) *
-            (square(H[p]) - sigma_squared[p] / r_sq_plus_a_sq_sq[p]) +
-        2. * a * m_mode_number_ * k *
-            (2. * M * r[p] / r_sq_plus_a_sq[p] + H[p]) / r_sq_plus_a_sq[p];
-    if (penetrating_horizon_) {
+    if (in_u_region) {
+      get(beta)[p] =
+          square(k) * (square(H[p]) - sigma_sq_over_r_sq_plus_a_sq_sq[p]) +
+          2. * a * m_mode_number_ * k *
+              (2. * M * r_over_r_sq_plus_a_sq[p] + H[p]) *
+              one_over_r_sq_plus_a_sq[p];
+      // in_u_region implies penetrating_horizon_
       get(beta)[p] /= get<0>(alpha)[p];
+    } else {
+      get(beta)[p] =
+          square(k) * (square(H[p]) - sigma_squared[p] / r_sq_plus_a_sq_sq[p]) +
+          2. * a * m_mode_number_ * k *
+              (2. * M * r[p] / r_sq_plus_a_sq[p] + H[p]) / r_sq_plus_a_sq[p];
+      if (penetrating_horizon_) {
+        get(beta)[p] /= get<0>(alpha)[p];
+      }
     }
   }
-  get(beta) +=
-      get<1>(alpha) * (m_mode_number_ * (m_mode_number_ + 1) +
-                       2. * M / r * (1. - square(a) / M / r) +
-                       std::complex<double>(0., 2. * a * m_mode_number_) *
-                           (1. + a * omega * H) / r) -
-      std::complex<double>(0., k) * dH;
-  get<0>(gamma) =
-      2. * square(a) * delta / (r * r_sq_plus_a_sq_sq) -
-      std::complex<double>(0., 2. * a * m_mode_number_) / r_sq_plus_a_sq -
-      std::complex<double>(0., 2. * k) * H;
-  get<1>(gamma) = 2. * m_mode_number_ * cos_theta_or_sq * get<1>(alpha);
+
+  if (in_u_region) {
+    get(beta) +=
+        get<1>(alpha) * (m_mode_number_ * (m_mode_number_ + 1) +
+                         2. * M * inv_r * (1. - square(a) / M * inv_r) +
+                         std::complex<double>(0., 2. * a * m_mode_number_) *
+                             (1. + a * omega * H) * inv_r) -
+        std::complex<double>(0., k) * dH;
+    // delta / (r * r_sq_plus_a_sq_sq) = delta/rsq * cube(inv_r) /
+    // square(one_plus_a_sq_inv_r_sq)
+    get<0>(gamma) =
+        2. * square(a) * cube(inv_r) * delta_over_r_sq /
+            square(one_plus_a_sq_inv_r_sq) -
+        std::complex<double>(0., 2. * a * m_mode_number_) * square(inv_r) /
+            (one_plus_a_sq_inv_r_sq)-std::complex<double>(0., 2. * k) * H;
+    get<1>(gamma) = 2. * m_mode_number_ * cos_theta_or_sq * get<1>(alpha);
+
+  } else {
+    get(beta) +=
+        get<1>(alpha) * (m_mode_number_ * (m_mode_number_ + 1) +
+                         2. * M / r * (1. - square(a) / M / r) +
+                         std::complex<double>(0., 2. * a * m_mode_number_) *
+                             (1. + a * omega * H) / r) -
+        std::complex<double>(0., k) * dH;
+    get<0>(gamma) =
+        2. * square(a) * delta / (r * r_sq_plus_a_sq_sq) -
+        std::complex<double>(0., 2. * a * m_mode_number_) / r_sq_plus_a_sq -
+        std::complex<double>(0., 2. * k) * H;
+    get<1>(gamma) = 2. * m_mode_number_ * cos_theta_or_sq * get<1>(alpha);
+  }
+
   if (impose_equatorial_symmetry_) {
     get<1>(gamma) += sin_theta_squared * get<1>(alpha);
     get<1>(gamma) *= 2.0;
   }
- get<1>(alpha) *= sin_theta_squared;
+  get<1>(alpha) *= sin_theta_squared;
   if (impose_equatorial_symmetry_) {
     get<1>(alpha) *= 4. * cos_theta_sq;
   }
