@@ -9,6 +9,7 @@ spectre_target_sources(
   ${LIBRARY}
   PRIVATE
   ObserveFlux.cpp
+  ObserveSecondOrderFlux.cpp
   ObserveRedshift.cpp
   )
 
@@ -17,6 +18,7 @@ spectre_target_headers(
   INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/src
   HEADERS
   ObserveFlux.hpp
+  ObserveSecondOrderFlux.hpp
   ObserveRedshift.hpp
   )
 
