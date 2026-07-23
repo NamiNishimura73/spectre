@@ -9,6 +9,7 @@
 #include "DataStructures/DataVector.hpp"
 #include "DataStructures/Tensor/EagerMath/Magnitude.hpp"
 #include "DataStructures/Tensor/Tensor.hpp"
+#include "Parallel/Printf/Printf.hpp"
 #include "Utilities/Gsl.hpp"
 
 namespace GrSelfForce::BoundaryConditions {
@@ -39,12 +40,20 @@ void Sommerfeld::apply(
     const tnsr::aaBB<ComplexDataVector, 3>& beta,
     const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const {
   if (hyperboloidal_slicing_) {
+    using TensorStruct = std::decay_t<decltype(*field)>::structure;
+    // For the static (m=0) mode, component (0,1) is Dirichlet-type (see
+    // below) rather than Neumann-type, so its normal-dot-flux must be left
+    // untouched here instead of being independently constrained to some
+    // other value, which would conflict with the Dirichlet condition.
+    const size_t tr_storage_index = TensorStruct::get_storage_index(0, 1);
     if (order_ == 1) {
       for (size_t i = 0; i < field->size(); ++i) {
+        if (m_mode_number_ == 0 and i == tr_storage_index) {
+          continue;
+        }
         (*n_dot_flux)[i] = 0.;
       }
     } else if (order_ == 2) {
-      using TensorStruct = std::decay_t<decltype(*field)>::structure;
       const size_t n_points = field->begin()->size();
       for (size_t i = 0; i < n_points; ++i) {
         blaze::StaticVector<std::complex<double>, 10> b_local(0.0);
@@ -68,6 +77,9 @@ void Sommerfeld::apply(
         for (size_t a = 0; a < 4; ++a) {
           for (size_t b = 0; b <= a; ++b) {
             const size_t row = TensorStruct::get_storage_index(a, b);
+            if (m_mode_number_ == 0 and row == tr_storage_index) {
+              continue;
+            }
             n_dot_flux->get(a, b)[i] = alpha_factor * grad_vec[row];
           }
         }
@@ -77,6 +89,16 @@ void Sommerfeld::apply(
       ERROR("Order " << order_
                      << " not implemented for Sommerfeld boundary condition "
                         "with hyperboloidal slicing.");
+    }
+    if (m_mode_number_ == 0) {
+      // Parallel::printf(
+      //     "Sommerfeld m=0 static BC activated.\n  alpha(0) = %s\n  "
+      //     "field(0,0) = %s\n  field(0,1) before override = %s\n",
+      //     alpha.get(0), get<0, 0>(*field), get<0, 1>(*field));
+      // (r^2+a^2)/Delta * psi_0/r + psi_1/r = 0 with alpha = Delta/(r^2+a^2).
+      get<0, 1>(*field) = -get<0, 0>(*field) / alpha.get(0);
+      // Parallel::printf("  field(0,1) after override = %s\n",
+      //                  get<0, 1>(*field));
     }
     return;
   }
