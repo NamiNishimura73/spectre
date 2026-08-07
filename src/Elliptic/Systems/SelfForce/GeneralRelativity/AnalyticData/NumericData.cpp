@@ -146,11 +146,12 @@ Interpolator1D load_data_from_file_1D(const std::string& filename,
   return {std::move(coord), std::move(flat_data)};
 }
 
-std::array<Interpolator, 4> load_all_data(const std::string& filename) {
+std::array<Interpolator, 5> load_all_data(const std::string& filename) {
   return {{load_data_from_file(filename, "RetRetV"),
            load_data_from_file(filename, "RetRetT"),
            load_data_from_file(filename, "RetRetU"),
-           load_data_from_file(filename, "Seff")}};
+           load_data_from_file(filename, "Seff"),
+           load_data_from_file(filename, "Puncture")}};
 }
 
 std::array<Interpolator1D, 4> load_all_boundary_data(
@@ -211,14 +212,15 @@ tuples::TaggedTuple<Tags::MMode> NumericData::variables(
 tuples::TaggedTuple<
     ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
     ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
+    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+    Tags::RawPuncture, Tags::EF_Puncture>
 NumericData::variables(
     const tnsr::I<DataVector, 2>& x,
     tmpl::list<
         ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
         ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-        Tags::BoyerLindquistRadius, Tags::RawEffSource,
-        Tags::EF_EffSource> /*meta*/,
+        Tags::BoyerLindquistRadius, Tags::RawEffSource,Tags::EF_EffSource,
+        Tags::RawPuncture, Tags::EF_Puncture> /*meta*/,
     const bool field_is_regularized) const {
   const double black_hole_spin_ = circular_orbit_.black_hole_spin();
   const double black_hole_mass_ = circular_orbit_.black_hole_mass();
@@ -242,7 +244,8 @@ NumericData::variables(
   tuples::TaggedTuple<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+      Tags::RawPuncture, Tags::EF_Puncture>
       result{};
   get(get<Tags::BoyerLindquistRadius>(result)) = r;
   const size_t num_points = get<0>(x).size();
@@ -254,11 +257,17 @@ NumericData::variables(
       get<Tags::RawEffSource>(result);
   tnsr::aa<ComplexDataVector, 3>& ef_eff_source =
       get<Tags::EF_EffSource>(result);
+  tnsr::aa<ComplexDataVector, 3>& raw_puncture =
+      get<Tags::RawPuncture>(result);
+  tnsr::aa<ComplexDataVector, 3>& ef_puncture =
+      get<Tags::EF_Puncture>(result);
   for (size_t i = 0; i < singular_field.size(); i++) {
     effective_source[i].destructive_resize(num_points);
     singular_field[i].destructive_resize(num_points);
     raw_eff_source[i].destructive_resize(num_points);
     ef_eff_source[i].destructive_resize(num_points);
+    raw_puncture[i].destructive_resize(num_points);
+    ef_puncture[i].destructive_resize(num_points);
   }
   auto& deriv_singular_field =
       get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
@@ -360,6 +369,63 @@ NumericData::variables(
         ef_eff_source.get(a1, b)[i] =
             gsl::at(src_conv_re, comp) +
             std::complex<double>(0., 1.) * gsl::at(src_conv_im, comp);
+      }
+    }
+
+
+    // Load the interior puncture (singular) field from h5 (upper-triangular
+    // ordering: k=0..9), apply pi_2_rotation, and convert from BL to EF
+    // frame with the same psi conversion used for the boundary hS data.
+    // Only defined in the regularized region, where the Puncture dataset
+    // shares its (r, theta) grid with Seff.
+    if (field_is_regularized) {
+      const auto puncture_weights =
+          interpolators_[4].interpolator.get_weights(r_clamped, theta_clamped);
+      std::array<double, 10> hP_re_arr{};
+      std::array<double, 10> hP_im_arr{};
+      std::array<double, 10> hP_conv_re{};
+      std::array<double, 10> hP_conv_im{};
+      for (size_t k = 0; k < 10; ++k) {
+        gsl::at(hP_re_arr, k) =
+            interpolators_[4].interpolator.interpolate(puncture_weights, 2 * k);
+        gsl::at(hP_im_arr, k) = interpolators_[4].interpolator.interpolate(
+            puncture_weights, 2 * k + 1);
+        if (pi_2_rotation_) {
+          const std::complex<double> rotated =
+              (gsl::at(hP_re_arr, k) +
+               std::complex<double>(0., 1.) * gsl::at(hP_im_arr, k)) *
+              (2. * M_PI * rotation[i]);
+          gsl::at(hP_re_arr, k) = rotated.real();
+          gsl::at(hP_im_arr, k) = rotated.imag();
+        }
+      }
+      if (version_ == 2) {
+        detail::convert_effsource_psi_vr(m_mode_number_, a, r[i], get<1>(x)[i],
+                                         hP_re_arr, hP_im_arr, hP_conv_re,
+                                         hP_conv_im);
+      } else if (version_ == 3) {
+        detail::convert_effsource_psi_vrz(m_mode_number_, a, r[i], get<1>(x)[i],
+                                          hP_re_arr, hP_im_arr, hP_conv_re,
+                                          hP_conv_im);
+      }
+      for (size_t a1 = 0; a1 < 4; ++a1) {
+        for (size_t b = 0; b <= a1; ++b) {
+          const size_t comp = tnsr::aa<ComplexDataVector, 3>::get_storage_index(
+              std::array<size_t, 2>{{a1, b}});
+          raw_puncture.get(a1, b)[i] =
+              gsl::at(hP_re_arr, comp) +
+              std::complex<double>(0., 1.) * gsl::at(hP_im_arr, comp);
+          ef_puncture.get(a1, b)[i] =
+              gsl::at(hP_conv_re, comp) +
+              std::complex<double>(0., 1.) * gsl::at(hP_conv_im, comp);
+        }
+      }
+    } else {
+      for (size_t a1 = 0; a1 < 4; ++a1) {
+        for (size_t b = 0; b <= a1; ++b) {
+          raw_puncture.get(a1, b)[i] = 0.;
+          ef_puncture.get(a1, b)[i] = 0.;
+        }
       }
     }
   }

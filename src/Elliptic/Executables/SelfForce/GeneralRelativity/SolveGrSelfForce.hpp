@@ -78,6 +78,8 @@ struct Metavariables {
                  GrSelfForce::Tags::BoyerLindquistRadius,
                  GrSelfForce::Tags::RawEffSource,
                  GrSelfForce::Tags::EF_EffSource,
+                 GrSelfForce::Tags::RawPuncture,
+                 GrSelfForce::Tags::EF_Puncture,
                  GrSelfForce::Tags::LorenzGaugeCondition,
                  GrSelfForce::Tags::LorenzGaugeConditionVSlicing,
                  GrSelfForce::Tags::LorenzGaugeConditionTSlicing,

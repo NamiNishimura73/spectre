@@ -133,7 +133,8 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   using source_tags = tmpl::list<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>;
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource, 
+      Tags::RawPuncture, Tags::EF_Puncture>;
 
   // Background
   tuples::tagged_tuple_from_typelist<background_tags> variables(

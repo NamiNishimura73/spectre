@@ -53,6 +53,10 @@ SPECTRE_TEST_CASE("Unit.Elliptic.Systems.GrSelfForce.Tags",
       "RawEffSource");
   TestHelpers::db::test_simple_tag<Tags::EF_EffSource>(
       "EF_EffSource");
+  TestHelpers::db::test_simple_tag<Tags::RawPuncture>(
+      "RawPuncture");
+  TestHelpers::db::test_simple_tag<Tags::EF_Puncture>(
+      "EF_Puncture");
   test_null_slicing_tag_logic();
 }
 

@@ -179,6 +179,21 @@ struct EF_EffSource : db::SimpleTag {
   using type = tnsr::aa<ComplexDataVector, 3>;
 };
 
+/*!
+ * \brief Raw puncture field (interior singular field), read directly from
+ * the h5 file's 'Puncture' dataset in the BL frame, before transformation.
+ */
+struct RawPuncture : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
+/*!
+ * \brief Puncture field in EF coordinate
+ *
+ * After transformation to EF coordinate
+ */
+struct EF_Puncture : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
 
 /*!
  * \brief Blocks in which we use null slicing (vtu-slicing).
