@@ -124,8 +124,6 @@ CircularOrbit::variables(
   const DataVector r_sq_plus_a_sq = square(r) + square(a);
   const DataVector r_sq_plus_a_sq_sq = square(r_sq_plus_a_sq);
   const DataVector sin_theta_squared = 1. - cos_theta_sq;
-  const DataVector sigma_squared =
-      r_sq_plus_a_sq_sq - square(a) * delta * sin_theta_squared;
   tuples::TaggedTuple<Tags::Alpha, Tags::Beta, Tags::Gamma> result{};
   // Hyperboloidal slicing
   ComplexDataVector H;
@@ -149,10 +147,18 @@ CircularOrbit::variables(
       penetrating_horizon_ ? (*hyperboloidal_slicing_transitions_)[3] : 0.0;
 
   DataVector inv_r{};
+  DataVector dsigma_dr{};
+  // dsigma_dr = d(sigma)/dr for sigma = 2*r_u - r_u^2/r, evaluated using
+  // inv_r = 1/r. Needed to rescale the equations from d/dr to d/dsigma in
+  // the u-region: alpha[0] -> alpha[0] * dsigma_dr, alpha[1] -> alpha[1] /
+  // dsigma_dr. Beta and Gamma[1] pick up the correct rescaling automatically
+  // since they're built from alpha[0]/alpha[1]; Gamma[0] is unchanged.
   if (in_u_region) {
     inv_r = (2.0 * r_u - r) / (r_u * r_u);
+    dsigma_dr = square(r_u) * square(inv_r);
   } else {
     inv_r = 1.0 / r;
+    dsigma_dr = make_with_value<DataVector>(r_star_or_r, 1.0);
   }
 
   auto& alpha = get<Tags::Alpha>(result);
@@ -166,21 +172,11 @@ CircularOrbit::variables(
   const DataVector sigma_sq_over_r_sq_plus_a_sq_sq =
       1.0 - square(a) * square(inv_r) * delta_over_r_sq * sin_theta_squared /
                 square(one_plus_a_sq_inv_r_sq);
-  // dsigma_dr = d(sigma)/dr for sigma = 2*r_u - r_u^2/r, evaluated using
-  // inv_r = 1/r. Needed to rescale the equations from d/dr to d/dsigma in
-  // the u-region: alpha[0] -> alpha[0] * dsigma_dr, alpha[1] -> alpha[1] /
-  // dsigma_dr. Beta and Gamma[1] pick up the correct rescaling automatically
-  // since they're built from alpha[0]/alpha[1]; Gamma[0] is unchanged.
-  const DataVector dsigma_dr = square(r_u) * square(inv_r);
+
 
   if (penetrating_horizon_) {
-    if (in_u_region) {
-      get<0>(alpha) = (delta_over_r_sq / one_plus_a_sq_inv_r_sq) * dsigma_dr;
-      get<1>(alpha) = (square(inv_r) / one_plus_a_sq_inv_r_sq) / dsigma_dr;
-    } else {
-      get<0>(alpha) = delta / r_sq_plus_a_sq;
-      get<1>(alpha) = 1.0 / r_sq_plus_a_sq;
-    }
+    get<0>(alpha) = (delta_over_r_sq / one_plus_a_sq_inv_r_sq) * dsigma_dr;
+    get<1>(alpha) = (square(inv_r) / one_plus_a_sq_inv_r_sq) / dsigma_dr;
   } else {
     get<0>(alpha) = make_with_value<DataVector>(r_star_or_r, 1.0);
     get<1>(alpha) = delta / r_sq_plus_a_sq_sq;
@@ -193,54 +189,29 @@ CircularOrbit::variables(
       // division by zero.
       continue;
     }
-    if (in_u_region) {
-      get(beta)[p] =
-          square(k) * (square(H[p]) - sigma_sq_over_r_sq_plus_a_sq_sq[p]) +
-          2. * a * m_mode_number_ * k *
-              (2. * M * r_over_r_sq_plus_a_sq[p] + H[p]) *
-              one_over_r_sq_plus_a_sq[p];
-      // in_u_region implies penetrating_horizon_
-      get(beta)[p] /= get<0>(alpha)[p];
-    } else {
-      get(beta)[p] =
-          square(k) * (square(H[p]) - sigma_squared[p] / r_sq_plus_a_sq_sq[p]) +
-          2. * a * m_mode_number_ * k *
-              (2. * M * r[p] / r_sq_plus_a_sq[p] + H[p]) / r_sq_plus_a_sq[p];
-      if (penetrating_horizon_) {
-        get(beta)[p] /= get<0>(alpha)[p];
-      }
-    }
+    get(beta)[p] =
+        square(k) * (square(H[p]) - sigma_sq_over_r_sq_plus_a_sq_sq[p]) +
+        2. * a * m_mode_number_ * k *
+            (2. * M * r_over_r_sq_plus_a_sq[p] + H[p]) *
+            one_over_r_sq_plus_a_sq[p];
+    // in_u_region implies penetrating_horizon_
+    get(beta)[p] /= get<0>(alpha)[p];
   }
 
-  if (in_u_region) {
-    get(beta) +=
-        get<1>(alpha) * (m_mode_number_ * (m_mode_number_ + 1) +
-                         2. * M * inv_r * (1. - square(a) / M * inv_r) +
-                         std::complex<double>(0., 2. * a * m_mode_number_) *
-                             (1. + a * omega * H) * inv_r) -
-        std::complex<double>(0., k) * dH;
-    // delta / (r * r_sq_plus_a_sq_sq) = delta/rsq * cube(inv_r) /
-    // square(one_plus_a_sq_inv_r_sq)
-    get<0>(gamma) =
-        2. * square(a) * cube(inv_r) * delta_over_r_sq /
-            square(one_plus_a_sq_inv_r_sq) -
-        std::complex<double>(0., 2. * a * m_mode_number_) * square(inv_r) /
-            (one_plus_a_sq_inv_r_sq)-std::complex<double>(0., 2. * k) * H;
-    get<1>(gamma) = 2. * m_mode_number_ * cos_theta_or_sq * get<1>(alpha);
-
-  } else {
-    get(beta) +=
-        get<1>(alpha) * (m_mode_number_ * (m_mode_number_ + 1) +
-                         2. * M / r * (1. - square(a) / M / r) +
-                         std::complex<double>(0., 2. * a * m_mode_number_) *
-                             (1. + a * omega * H) / r) -
-        std::complex<double>(0., k) * dH;
-    get<0>(gamma) =
-        2. * square(a) * delta / (r * r_sq_plus_a_sq_sq) -
-        std::complex<double>(0., 2. * a * m_mode_number_) / r_sq_plus_a_sq -
-        std::complex<double>(0., 2. * k) * H;
-    get<1>(gamma) = 2. * m_mode_number_ * cos_theta_or_sq * get<1>(alpha);
-  }
+  get(beta) +=
+      get<1>(alpha) * (m_mode_number_ * (m_mode_number_ + 1) +
+                        2. * M * inv_r * (1. - square(a) / M * inv_r) +
+                        std::complex<double>(0., 2. * a * m_mode_number_) *
+                            (1. + a * omega * H) * inv_r) -
+      std::complex<double>(0., k) * dH;
+  // delta / (r * r_sq_plus_a_sq_sq) = delta/rsq * cube(inv_r) /
+  // square(one_plus_a_sq_inv_r_sq)
+  get<0>(gamma) =
+      2. * square(a) * cube(inv_r) * delta_over_r_sq /
+          square(one_plus_a_sq_inv_r_sq) -
+      std::complex<double>(0., 2. * a * m_mode_number_) * square(inv_r) /
+          (one_plus_a_sq_inv_r_sq)-std::complex<double>(0., 2. * k) * H;
+  get<1>(gamma) = 2. * m_mode_number_ * cos_theta_or_sq * get<1>(alpha);
 
   if (impose_equatorial_symmetry_) {
     get<1>(gamma) += sin_theta_squared * get<1>(alpha);
