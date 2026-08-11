@@ -87,9 +87,9 @@ tnsr::I<double, 2> CircularOrbit::puncture_position() const {
   if (penetrating_horizon_) {
     return tnsr::I<double, 2>{{{r_0, 0.}}};
   } else {
-    // const double r_star = gr::tortoise_radius_from_boyer_lindquist_minus_r_plus(
-    //     r_0 - r_plus, M, black_hole_spin_);
-    // return tnsr::I<double, 2>{{{r_star, M_PI_2}}};
+    const double r_star = gr::tortoise_radius_from_boyer_lindquist_minus_r_plus(
+        r_0 - r_plus, M, black_hole_spin_);
+    return tnsr::I<double, 2>{{{r_star, M_PI_2}}};
   }
 }
 
@@ -137,14 +137,14 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
     cos_theta.set_data_ref(const_cast<DataVector*>(&theta_or_cos_theta));
     theta = acos(cos_theta);
   } else {
-    // // NOLINTNEXTLINE
-    // r_star.set_data_ref(const_cast<DataVector*>(&r_star_or_r));
-    // r_minus_r_plus = gr::boyer_lindquist_radius_minus_r_plus_from_tortoise(
-    //     r_star, M, black_hole_spin_);
-    // r = r_minus_r_plus + r_plus;
-    // // NOLINTNEXTLINE
-    // theta.set_data_ref(const_cast<DataVector*>(&theta_or_cos_theta));
-    // cos_theta = cos(theta);
+    // NOLINTNEXTLINE
+    r_star.set_data_ref(const_cast<DataVector*>(&r_star_or_r));
+    r_minus_r_plus = gr::boyer_lindquist_radius_minus_r_plus_from_tortoise(
+        r_star, M, black_hole_spin_);
+    r = r_minus_r_plus + r_plus;
+    // NOLINTNEXTLINE
+    theta.set_data_ref(const_cast<DataVector*>(&theta_or_cos_theta));
+    cos_theta = cos(theta);
   }
   const bool in_u_region =
       penetrating_horizon_ and r[0] > (*hyperboloidal_slicing_transitions_)[3];
@@ -180,13 +180,11 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
   const DataVector one_plus_a_sq_inv_r_sq = 1.0 + square(a) * square(inv_r);
   const DataVector delta_over_r_sq = one_plus_a_sq_inv_r_sq - 2.0 * M * inv_r;
   if (penetrating_horizon_) {
-    // get<0>(alpha) = delta / r_sq_plus_a_sq;
-    // get<1>(alpha) = sin_theta_squared / r_sq_plus_a_sq;
     get<0>(alpha) = (delta_over_r_sq / one_plus_a_sq_inv_r_sq) * dsigma_dr;
     get<1>(alpha) = sin_theta_squared * (square(inv_r) / one_plus_a_sq_inv_r_sq) / dsigma_dr;
   } else {
-    // get<0>(alpha) = make_with_value<DataVector>(r_star_or_r, 1.0);
-    // get<1>(alpha) = delta / r_sq_plus_a_sq_sq;
+    get<0>(alpha) = make_with_value<DataVector>(r_star_or_r, 1.0);
+    get<1>(alpha) = delta / r_sq_plus_a_sq_sq;
   }
 
   for (size_t i = 0; i < beta.size(); ++i) {
@@ -263,80 +261,80 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
       // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
     }
   } else {
-    // std::array<std::array<double, 10>, 10> Areal{};
-    // std::array<std::array<double, 10>, 10> Aimag{};
-    // std::array<std::array<double, 10>, 10> Breal{};
-    // std::array<std::array<double, 10>, 10> Bimag{};
-    // std::array<std::array<double, 10>, 10> Creal{};
-    // std::array<std::array<double, 10>, 10> Cimag{};
-    // for (size_t i = 0; i < r.size(); i++) {
-    //   detail::getAreal(m_mode_number_, a, m_mode_number_ * omega, r[i],
-    //                    theta[i], Areal);
-    //   detail::getAimag(m_mode_number_, a, m_mode_number_ * omega, r[i],
-    //                    theta[i], Aimag);
-    //   detail::getBreal(m_mode_number_, a, m_mode_number_ * omega, r[i],
-    //                    theta[i], Breal);
-    //   detail::getBimag(m_mode_number_, a, m_mode_number_ * omega, r[i],
-    //                    theta[i], Bimag);
-    //   detail::getCreal(m_mode_number_, a, m_mode_number_ * omega, r[i],
-    //                    theta[i], Creal);
-    //   detail::getCimag(m_mode_number_, a, m_mode_number_ * omega, r[i],
-    //                    theta[i], Cimag);
-    //   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
-    //   for (size_t a1 = 0; a1 < 4; ++a1) {
-    //     for (size_t b = 0; b <= a1; ++b) {
-    //       const size_t matrix_i =
-    //           tnsr::aa<ComplexDataVector, 3>::get_storage_index(
-    //               std::array<size_t, 2>{{a1, b}});
-    //       for (size_t c = 0; c < 4; ++c) {
-    //         for (size_t d = 0; d <= c; ++d) {
-    //           const size_t matrix_j =
-    //               tnsr::aa<ComplexDataVector, 3>::get_storage_index(
-    //                   std::array<size_t, 2>{{c, d}});
-    //           gamma_rstar.get(a1, b, c, d)[i] =
-    //               Areal[matrix_i][matrix_j] +
-    //               std::complex<double>(0., 1.) * Aimag[matrix_i][matrix_j];
-    //           gamma_theta.get(a1, b, c, d)[i] =
-    //               Breal[matrix_i][matrix_j] +
-    //               std::complex<double>(0., 1.) * Bimag[matrix_i][matrix_j];
-    //           beta.get(a1, b, c, d)[i] =
-    //               Creal[matrix_i][matrix_j] +
-    //               std::complex<double>(0., 1.) * Cimag[matrix_i][matrix_j];
-    //         }
-    //       }
-    //     }
-    //   }
-    //   // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
-    // }
-    // for (size_t i = 0; i < beta.size(); ++i) {
-    //   beta[i] *= -1.;
-    //   gamma_rstar[i] *= -1.;
-    //   gamma_theta[i] *= -1.;
-    // }
-    // // Hyperboloidal slicing
-    // if (hyperboloidal_slicing_transitions_.has_value()) {
-    //   const auto [H, dH] = boost_function_and_deriv<1>(
-    //       r_star, hyperboloidal_slicing_transitions_.value());
-    //   const double k = m_mode_number_ * omega;
-    //   for (size_t a1 = 0; a1 < 4; ++a1) {
-    //     for (size_t b = 0; b <= a1; ++b) {
-    //       for (size_t c = 0; c < 4; ++c) {
-    //         for (size_t d = 0; d <= c; ++d) {
-    //           if (a1 == c and b == d) {
-    //             beta.get(a1, b, c, d) +=
-    //                 std::complex<double>(0., -k) * dH + square(k) * square(H);
-    //           }
-    //           beta.get(a1, b, c, d) += std::complex<double>(0., k) *
-    //                                    gamma_rstar.get(a1, b, c, d) * H;
-    //           if (a1 == c and b == d) {
-    //             gamma_rstar.get(a1, b, c, d) -=
-    //                 std::complex<double>(0., 2. * k) * H;
-    //           }
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
+    std::array<std::array<double, 10>, 10> Areal{};
+    std::array<std::array<double, 10>, 10> Aimag{};
+    std::array<std::array<double, 10>, 10> Breal{};
+    std::array<std::array<double, 10>, 10> Bimag{};
+    std::array<std::array<double, 10>, 10> Creal{};
+    std::array<std::array<double, 10>, 10> Cimag{};
+    for (size_t i = 0; i < r.size(); i++) {
+      detail::getAreal(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                       theta[i], Areal);
+      detail::getAimag(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                       theta[i], Aimag);
+      detail::getBreal(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                       theta[i], Breal);
+      detail::getBimag(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                       theta[i], Bimag);
+      detail::getCreal(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                       theta[i], Creal);
+      detail::getCimag(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                       theta[i], Cimag);
+      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
+      for (size_t a1 = 0; a1 < 4; ++a1) {
+        for (size_t b = 0; b <= a1; ++b) {
+          const size_t matrix_i =
+              tnsr::aa<ComplexDataVector, 3>::get_storage_index(
+                  std::array<size_t, 2>{{a1, b}});
+          for (size_t c = 0; c < 4; ++c) {
+            for (size_t d = 0; d <= c; ++d) {
+              const size_t matrix_j =
+                  tnsr::aa<ComplexDataVector, 3>::get_storage_index(
+                      std::array<size_t, 2>{{c, d}});
+              gamma_rstar.get(a1, b, c, d)[i] =
+                  Areal[matrix_i][matrix_j] +
+                  std::complex<double>(0., 1.) * Aimag[matrix_i][matrix_j];
+              gamma_theta.get(a1, b, c, d)[i] =
+                  Breal[matrix_i][matrix_j] +
+                  std::complex<double>(0., 1.) * Bimag[matrix_i][matrix_j];
+              beta.get(a1, b, c, d)[i] =
+                  Creal[matrix_i][matrix_j] +
+                  std::complex<double>(0., 1.) * Cimag[matrix_i][matrix_j];
+            }
+          }
+        }
+      }
+      // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
+    }
+    for (size_t i = 0; i < beta.size(); ++i) {
+      beta[i] *= -1.;
+      gamma_rstar[i] *= -1.;
+      gamma_theta[i] *= -1.;
+    }
+    // Hyperboloidal slicing
+    if (hyperboloidal_slicing_transitions_.has_value()) {
+      const auto [H, dH] = boost_function_and_deriv<1>(
+          r_star, hyperboloidal_slicing_transitions_.value());
+      const double k = m_mode_number_ * omega;
+      for (size_t a1 = 0; a1 < 4; ++a1) {
+        for (size_t b = 0; b <= a1; ++b) {
+          for (size_t c = 0; c < 4; ++c) {
+            for (size_t d = 0; d <= c; ++d) {
+              if (a1 == c and b == d) {
+                beta.get(a1, b, c, d) +=
+                    std::complex<double>(0., -k) * dH + square(k) * square(H);
+              }
+              beta.get(a1, b, c, d) += std::complex<double>(0., k) *
+                                       gamma_rstar.get(a1, b, c, d) * H;
+              if (a1 == c and b == d) {
+                gamma_rstar.get(a1, b, c, d) -=
+                    std::complex<double>(0., 2. * k) * H;
+              }
+            }
+          }
+        }
+      }
+    }
   }
   return result;
 }

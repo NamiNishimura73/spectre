@@ -108,7 +108,10 @@ class Sommerfeld : public elliptic::BoundaryConditions::BoundaryCondition<2> {
 
   std::vector<elliptic::BoundaryConditionType> boundary_condition_types()
       const override {
-    return {elliptic::BoundaryConditionType::Neumann};
+    // One entry per independent component of the MMode tensor field
+    return std::vector<elliptic::BoundaryConditionType>(
+        tnsr::aa<ComplexDataVector, 3>::size(),
+        elliptic::BoundaryConditionType::Neumann);
   }
 
   using argument_tags = tmpl::list<Tags::Alpha, Tags::Beta, Tags::GammaRstar>;
