@@ -133,7 +133,14 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   using source_tags = tmpl::list<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>;
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+      Tags::RawPuncture, Tags::EF_Puncture>;
+  /// Same as `source_tags`, plus `Tags::RHSBoxPuncture`. For CircularOrbit
+  /// (the 1st-order case) there is no 2nd-order correction term, so
+  /// `Tags::RHSBoxPuncture` is just `::Tags::FixedSource<Tags::MMode>`
+  /// (i.e. the effective source itself) -- see the analogous tag in
+  /// `NumericData` for the 2nd-order case, where the two differ.
+  using diagnostic_tags = tmpl::push_back<source_tags, Tags::RHSBoxPuncture>;
 
   // Background
   tuples::tagged_tuple_from_typelist<background_tags> variables(
@@ -146,6 +153,10 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   // Fixed sources
   tuples::tagged_tuple_from_typelist<source_tags> variables(
       const tnsr::I<DataVector, 2>& x, source_tags /*meta*/) const;
+
+  // Fixed sources, plus diagnostic-only tags (e.g. Tags::RHSBoxPuncture)
+  tuples::tagged_tuple_from_typelist<diagnostic_tags> variables(
+      const tnsr::I<DataVector, 2>& x, diagnostic_tags /*meta*/) const;
 
   template <typename... RequestedTags>
   tuples::TaggedTuple<RequestedTags...> variables(

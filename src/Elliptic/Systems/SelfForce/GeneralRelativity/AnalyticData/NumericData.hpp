@@ -145,7 +145,13 @@ class NumericData : public elliptic::analytic_data::Background,
   using source_tags = tmpl::list<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>;
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+      Tags::RawPuncture, Tags::EF_Puncture>;
+  /// Same as `source_tags`, plus `Tags::RHSBoxPuncture`. Kept as a separate
+  /// list (rather than adding `Tags::RHSBoxPuncture` to `source_tags`
+  /// directly) so that computing it doesn't add cost to callers that only
+  /// need `source_tags` -- see the two `variables()` overloads below.
+  using diagnostic_tags = tmpl::push_back<source_tags, Tags::RHSBoxPuncture>;
 
   // Background
   tuples::tagged_tuple_from_typelist<background_tags> variables(
@@ -164,6 +170,15 @@ class NumericData : public elliptic::analytic_data::Background,
       const tnsr::I<DataVector, 2>& x, source_tags /*meta*/,
       bool field_is_regularized) const;
 
+  // Fixed sources, plus diagnostic-only tags (e.g. Tags::RHSBoxPuncture)
+  tuples::tagged_tuple_from_typelist<diagnostic_tags> variables(
+      const tnsr::I<DataVector, 2>& x, diagnostic_tags /*meta*/) const {
+    return variables(x, diagnostic_tags{}, true);
+  }
+  tuples::tagged_tuple_from_typelist<diagnostic_tags> variables(
+      const tnsr::I<DataVector, 2>& x, diagnostic_tags /*meta*/,
+      bool field_is_regularized) const;
+
   template <typename... RequestedTags>
   tuples::TaggedTuple<RequestedTags...> variables(
       const tnsr::I<DataVector, 2>& x, const Mesh<2>& /*mesh*/,
@@ -173,6 +188,37 @@ class NumericData : public elliptic::analytic_data::Background,
     return variables(x, tmpl::list<RequestedTags...>{});
   }
 
+  /// The (r, theta) bounds of the worldtube (Seff's footprint), i.e. the
+  /// region where field_is_regularized is expected to be true.
+  double worldtube_r_min() const {
+    return interpolators_[3].interpolator.lower_bound(0);
+  }
+  double worldtube_r_max() const {
+    return interpolators_[3].interpolator.upper_bound(0);
+  }
+  double worldtube_theta_min() const {
+    return interpolators_[3].interpolator.lower_bound(1);
+  }
+  double worldtube_theta_max() const {
+    return interpolators_[3].interpolator.upper_bound(1);
+  }
+
+  /// Interpolate the singular field and its available normal derivative from
+  /// the Left/Right/Top/Bottom h5 boundary data, for cross-checking against
+  /// the domain-wide Puncture/drPuncture/dthPuncture data used in
+  /// `variables`. `face` selects which boundary: 0 = Left
+  /// (r = worldtube_r_min, parameterized by theta), 1 = Right
+  /// (r = worldtube_r_max, parameterized by theta), 2 = Bottom
+  /// (theta = worldtube_theta_min, parameterized by r), 3 = Top
+  /// (theta = worldtube_theta_max, parameterized by r). Only the derivative
+  /// normal to the chosen face is populated (dr for Left/Right, dtheta for
+  /// Bottom/Top); the other component is zero, since that's all the
+  /// Left/Right/Top/Bottom data provides.
+  tuples::TaggedTuple<
+      Tags::SingularField,
+      ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>
+  boundary_face_variables(const tnsr::I<DataVector, 2>& x, size_t face) const;
+
   // NOLINTNEXTLINE
   void pup(PUP::er& p) override;
 
@@ -180,7 +226,8 @@ class NumericData : public elliptic::analytic_data::Background,
   friend bool operator==(const NumericData& lhs, const NumericData& rhs);
 
   std::string filename_;
-  std::array<Interpolator, 4> interpolators_;
+  // Order: RetRetV, RetRetT, RetRetU, Seff, Puncture, drPuncture, dthPuncture
+  std::array<Interpolator, 7> interpolators_;
   std::array<Interpolator1D, 4> boundary_interpolators_;
   CircularOrbit circular_orbit_;
   bool pi_2_rotation_{false};

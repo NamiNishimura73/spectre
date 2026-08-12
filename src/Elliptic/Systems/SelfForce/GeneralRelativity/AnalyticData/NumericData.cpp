@@ -146,11 +146,14 @@ Interpolator1D load_data_from_file_1D(const std::string& filename,
   return {std::move(coord), std::move(flat_data)};
 }
 
-std::array<Interpolator, 4> load_all_data(const std::string& filename) {
+std::array<Interpolator, 7> load_all_data(const std::string& filename) {
   return {{load_data_from_file(filename, "RetRetV"),
            load_data_from_file(filename, "RetRetT"),
            load_data_from_file(filename, "RetRetU"),
-           load_data_from_file(filename, "Seff")}};
+           load_data_from_file(filename, "Seff"),
+           load_data_from_file(filename, "Puncture"),
+           load_data_from_file(filename, "drPuncture"),
+           load_data_from_file(filename, "dthPuncture")}};
 }
 
 std::array<Interpolator1D, 4> load_all_boundary_data(
@@ -211,14 +214,15 @@ tuples::TaggedTuple<Tags::MMode> NumericData::variables(
 tuples::TaggedTuple<
     ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
     ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
+    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+    Tags::RawPuncture, Tags::EF_Puncture>
 NumericData::variables(
     const tnsr::I<DataVector, 2>& x,
     tmpl::list<
         ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
         ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
         Tags::BoyerLindquistRadius, Tags::RawEffSource,
-        Tags::EF_EffSource> /*meta*/,
+        Tags::EF_EffSource,Tags::RawPuncture, Tags::EF_Puncture> /*meta*/,
     const bool field_is_regularized) const {
   const double black_hole_spin_ = circular_orbit_.black_hole_spin();
   const double black_hole_mass_ = circular_orbit_.black_hole_mass();
@@ -242,7 +246,8 @@ NumericData::variables(
   tuples::TaggedTuple<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+      Tags::RawPuncture, Tags::EF_Puncture>
       result{};
   get(get<Tags::BoyerLindquistRadius>(result)) = r;
   const size_t num_points = get<0>(x).size();
@@ -254,11 +259,17 @@ NumericData::variables(
       get<Tags::RawEffSource>(result);
   tnsr::aa<ComplexDataVector, 3>& ef_eff_source =
       get<Tags::EF_EffSource>(result);
+  tnsr::aa<ComplexDataVector, 3>& raw_puncture =
+      get<Tags::RawPuncture>(result);
+  tnsr::aa<ComplexDataVector, 3>& ef_puncture =
+      get<Tags::EF_Puncture>(result);
   for (size_t i = 0; i < singular_field.size(); i++) {
     effective_source[i].destructive_resize(num_points);
     singular_field[i].destructive_resize(num_points);
     raw_eff_source[i].destructive_resize(num_points);
     ef_eff_source[i].destructive_resize(num_points);
+    raw_puncture[i].destructive_resize(num_points);
+    ef_puncture[i].destructive_resize(num_points);
   }
   auto& deriv_singular_field =
       get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
@@ -362,110 +373,196 @@ NumericData::variables(
             std::complex<double>(0., 1.) * gsl::at(src_conv_im, comp);
       }
     }
-  }
 
-  if (field_is_regularized) {
-    const double r_wt_left = interpolators_[3].interpolator.lower_bound(0);
-    const double r_wt_right = interpolators_[3].interpolator.upper_bound(0);
-    const double theta_wt_bot = interpolators_[3].interpolator.lower_bound(1);
-    const double theta_wt_top = interpolators_[3].interpolator.upper_bound(1);
 
-    {
-      for (auto& component : singular_field) {
-        component = ComplexDataVector(num_points, 0.0);
+    // Load the interior puncture (singular) field from h5 (upper-triangular
+    // ordering: k=0..9), apply pi_2_rotation, and convert from BL to EF
+    // frame with the same psi conversion used for the boundary hS data.
+    // Only defined in the regularized region, where the Puncture dataset
+    // shares its (r, theta) grid with Seff.
+    if (field_is_regularized) {
+      const auto puncture_weights =
+          interpolators_[4].interpolator.get_weights(r_clamped, theta_clamped);
+      std::array<double, 10> hP_re_arr{};
+      std::array<double, 10> hP_im_arr{};
+      std::array<double, 10> hP_conv_re{};
+      std::array<double, 10> hP_conv_im{};
+      for (size_t k = 0; k < 10; ++k) {
+        gsl::at(hP_re_arr, k) =
+            interpolators_[4].interpolator.interpolate(puncture_weights, 2 * k);
+        gsl::at(hP_im_arr, k) = interpolators_[4].interpolator.interpolate(
+            puncture_weights, 2 * k + 1);
+        if (pi_2_rotation_) {
+          const std::complex<double> rotated =
+              (gsl::at(hP_re_arr, k) +
+               std::complex<double>(0., 1.) * gsl::at(hP_im_arr, k)) *
+              (2. * M_PI * rotation[i]);
+          gsl::at(hP_re_arr, k) = rotated.real();
+          gsl::at(hP_im_arr, k) = rotated.imag();
+        }
       }
-      for (auto& component : deriv_singular_field) {
-        component = ComplexDataVector(num_points, 0.0);
+      if (version_ == 2) {
+        detail::convert_effsource_psi_vr(m_mode_number_, a, r[i], get<1>(x)[i],
+                                         hP_re_arr, hP_im_arr, hP_conv_re,
+                                         hP_conv_im);
+      } else if (version_ == 3) {
+        detail::convert_effsource_psi_vrz(m_mode_number_, a, r[i], get<1>(x)[i],
+                                          hP_re_arr, hP_im_arr, hP_conv_re,
+                                          hP_conv_im);
+      }
+      for (size_t a1 = 0; a1 < 4; ++a1) {
+        for (size_t b = 0; b <= a1; ++b) {
+          const size_t comp = tnsr::aa<ComplexDataVector, 3>::get_storage_index(
+              std::array<size_t, 2>{{a1, b}});
+          raw_puncture.get(a1, b)[i] =
+              gsl::at(hP_re_arr, comp) +
+              std::complex<double>(0., 1.) * gsl::at(hP_im_arr, comp);
+          ef_puncture.get(a1, b)[i] =
+              gsl::at(hP_conv_re, comp) +
+              std::complex<double>(0., 1.) * gsl::at(hP_conv_im, comp);
+        }
+      }
+    } else {
+      for (size_t a1 = 0; a1 < 4; ++a1) {
+        for (size_t b = 0; b <= a1; ++b) {
+          raw_puncture.get(a1, b)[i] = 0.;
+          ef_puncture.get(a1, b)[i] = 0.;
+        }
       }
     }
 
-    // Override face/mortar points with h5 boundary data for consistency with
-    // the numerical Seff.
-    for (size_t i = 0; i < num_points; ++i) {
-      const bool on_left = equal_within_roundoff(r[i], r_wt_left);
-      const bool on_right = equal_within_roundoff(r[i], r_wt_right);
-      const bool on_bottom = equal_within_roundoff(theta[i], theta_wt_bot);
-      const bool on_top = equal_within_roundoff(theta[i], theta_wt_top);
+  }
 
-      if (not(on_left or on_right or on_bottom or on_top)) {
+  {
+    // Puncture, drPuncture, dthPuncture are provided wherever the
+    // corresponding "true" effective source (Seff inside the regularized
+    // block, RetRetV/T/U outside it) is nonzero, i.e. at least the T-slicing
+    // region. Populate singular_field and deriv_singular_field from them at
+    // every point within their footprint, regardless of field_is_regularized:
+    // when field_is_regularized is true the point must always be covered (it
+    // lies in the regularized block), so we error loudly if it isn't; when
+    // false, points may legitimately fall outside the puncture footprint
+    // (e.g. deep in the RetRetU region), so we just leave the field zero
+    // there. (Downstream, InitializeEffectiveSource only reads these tags
+    // when field_is_regularized is true and independently zeroes them itself
+    // otherwise, so populating them further out here doesn't affect the
+    // actual solve.)
+    for (auto& component : singular_field) {
+      component = ComplexDataVector(num_points, 0.0);
+    }
+    for (auto& component : deriv_singular_field) {
+      component = ComplexDataVector(num_points, 0.0);
+    }
+    const auto& puncture_interpolator = interpolators_[4].interpolator;
+    const auto& dr_puncture_interpolator = interpolators_[5].interpolator;
+    const auto& dth_puncture_interpolator = interpolators_[6].interpolator;
+    const std::array<std::array<double, 2>, 2> puncture_bounds{
+        {{{puncture_interpolator.lower_bound(0),
+           puncture_interpolator.upper_bound(0)}},
+         {{puncture_interpolator.lower_bound(1),
+           puncture_interpolator.upper_bound(1)}}}};
+    for (size_t i = 0; i < num_points; ++i) {
+      const double r_clamped = std::clamp(r[i], puncture_bounds[0][0],
+                                          puncture_bounds[0][1]);
+      const bool r_out_of_bounds = not equal_within_roundoff(r[i], r_clamped);
+      const double theta_clamped = std::clamp(theta[i], puncture_bounds[1][0],
+                                              puncture_bounds[1][1]);
+      const bool theta_out_of_bounds =
+          (theta[i] < puncture_bounds[1][0] or
+           theta[i] > puncture_bounds[1][1]) and
+          // Allow extrapolation to the poles
+          not(equal_within_roundoff(theta[i], 0., 0.15) or
+              equal_within_roundoff(theta[i], M_PI, 0.15) or
+              equal_within_roundoff(theta[i], puncture_bounds[1][0]) or
+              equal_within_roundoff(theta[i], puncture_bounds[1][1]));
+      if (r_out_of_bounds or theta_out_of_bounds) {
+        if (field_is_regularized) {
+          ERROR("Requested (r, theta) = ("
+                << r[i] << ", " << theta[i]
+                << ") is outside of the puncture interpolation bounds "
+                   "[r: "
+                << puncture_bounds[0][0] << ", " << puncture_bounds[0][1]
+                << "], [theta: " << puncture_bounds[1][0] << ", "
+                << puncture_bounds[1][1]
+                << "], but field_is_regularized is true.");
+        }
+        // Outside the puncture footprint and not regularized here: leave
+        // singular_field / deriv_singular_field zero at this point.
         continue;
       }
+      const auto weights =
+          puncture_interpolator.get_weights(r_clamped, theta_clamped);
+      const auto dr_weights =
+          dr_puncture_interpolator.get_weights(r_clamped, theta_clamped);
+      const auto dth_weights =
+          dth_puncture_interpolator.get_weights(r_clamped, theta_clamped);
 
-      const auto& binterp = on_left    ? boundary_interpolators_[0].interpolator
-                            : on_right ? boundary_interpolators_[1].interpolator
-                            : on_bottom
-                                ? boundary_interpolators_[2].interpolator
-                                : boundary_interpolators_[3].interpolator;
-      const double coord_i = (on_left or on_right) ? theta[i] : r[i];
-      const auto weights = binterp.get_weights(coord_i);
-
-      // Load raw BL-frame hS and its normal derivative from h5
+      // Load raw BL-frame hS and its r- and theta-derivatives from h5
       // (upper-triangular ordering k=0..9) and convert to VR frame.
       // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
       std::array<double, 10> hS_re_arr{};
       std::array<double, 10> hS_im_arr{};
-      std::array<double, 10> dhS_re_arr{};
-      std::array<double, 10> dhS_im_arr{};
+      std::array<double, 10> dhS_dr_re_arr{};
+      std::array<double, 10> dhS_dr_im_arr{};
+      std::array<double, 10> dhS_dth_re_arr{};
+      std::array<double, 10> dhS_dth_im_arr{};
       std::array<double, 10> hS_conv_re{};
       std::array<double, 10> hS_conv_im{};
-      std::array<double, 10> dhS_conv_re{};
-      std::array<double, 10> dhS_conv_im{};
+      std::array<double, 10> dhS_dr_conv_re{};
+      std::array<double, 10> dhS_dr_conv_im{};
+      std::array<double, 10> dhS_dth_conv_re{};
+      std::array<double, 10> dhS_dth_conv_im{};
       for (size_t k = 0; k < 10; ++k) {
-        hS_re_arr[k] = binterp.interpolate(weights, 2 * k);
-        hS_im_arr[k] = binterp.interpolate(weights, 2 * k + 1);
-        dhS_re_arr[k] = binterp.interpolate(weights, 20 + 2 * k);
-        dhS_im_arr[k] = binterp.interpolate(weights, 20 + 2 * k + 1);
+        hS_re_arr[k] = puncture_interpolator.interpolate(weights, 2 * k);
+        hS_im_arr[k] = puncture_interpolator.interpolate(weights, 2 * k + 1);
+        dhS_dr_re_arr[k] =
+            dr_puncture_interpolator.interpolate(dr_weights, 2 * k);
+        dhS_dr_im_arr[k] =
+            dr_puncture_interpolator.interpolate(dr_weights, 2 * k + 1);
+        dhS_dth_re_arr[k] =
+            dth_puncture_interpolator.interpolate(dth_weights, 2 * k);
+        dhS_dth_im_arr[k] =
+            dth_puncture_interpolator.interpolate(dth_weights, 2 * k + 1);
         if (pi_2_rotation_) {
           const std::complex<double> rotated_hS =
               (hS_re_arr[k] + std::complex<double>(0., 1.) * hS_im_arr[k]) *
               (2. * M_PI * rotation[i]);
           hS_re_arr[k] = rotated_hS.real();
           hS_im_arr[k] = rotated_hS.imag();
-          std::complex<double> rotated_dhS;
-          const std::complex<double> dhS =
-              (dhS_re_arr[k] + std::complex<double>(0., 1.) * dhS_im_arr[k]);
-          rotated_dhS = 2 * M_PI * rotation[i] * dhS;
-          dhS_re_arr[k] = rotated_dhS.real();
-          dhS_im_arr[k] = rotated_dhS.imag();
+          const std::complex<double> rotated_dhS_dr =
+              2. * M_PI * rotation[i] *
+              (dhS_dr_re_arr[k] +
+               std::complex<double>(0., 1.) * dhS_dr_im_arr[k]);
+          dhS_dr_re_arr[k] = rotated_dhS_dr.real();
+          dhS_dr_im_arr[k] = rotated_dhS_dr.imag();
+          const std::complex<double> rotated_dhS_dth =
+              2. * M_PI * rotation[i] *
+              (dhS_dth_re_arr[k] +
+               std::complex<double>(0., 1.) * dhS_dth_im_arr[k]);
+          dhS_dth_re_arr[k] = rotated_dhS_dth.real();
+          dhS_dth_im_arr[k] = rotated_dhS_dth.imag();
         }
       }
       if (version_ == 2) {
         detail::convert_effsource_psi_vr(m_mode_number_, a, r[i], get<1>(x)[i],
                                          hS_re_arr, hS_im_arr, hS_conv_re,
                                          hS_conv_im);
+        detail::convert_effsource_dpsidr_vr(
+            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+            dhS_dr_re_arr, dhS_dr_im_arr, dhS_dr_conv_re, dhS_dr_conv_im);
+        detail::convert_effsource_dpsidz_vr(
+            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+            dhS_dth_re_arr, dhS_dth_im_arr, dhS_dth_conv_re, dhS_dth_conv_im);
       } else if (version_ == 3) {
         detail::convert_effsource_psi_vrz(m_mode_number_, a, r[i], get<1>(x)[i],
                                           hS_re_arr, hS_im_arr, hS_conv_re,
                                           hS_conv_im);
-      }
-
-      if (on_left or on_right) {
-        if (version_ == 2) {
-          // Left/Right: normal is r, columns 20-39 are dr derivative
-          detail::convert_effsource_dpsidr_vr(
-              m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
-              dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
-        } else if (version_ == 3) {
-          // Left/Right: normal is r, columns 20-39 are dr derivative
-          detail::convert_effsource_dpsidr_vrz(
-              m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
-              dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
-        }
-
-      } else {
-        if (version_ == 2) {
-          // Bottom/Top: normal is theta, columns 20-39 are dtheta derivative;
-          // conversion also maps d/dtheta -> d/d(cos_theta)
-          detail::convert_effsource_dpsidz_vr(
-              m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
-              dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
-        } else if (version_ == 3) {
-          // Bottom/Top: normal is theta, columns 20-39 are dtheta derivative;
-          // conversion also maps d/dtheta -> d/d(cos_theta)
-          detail::convert_effsource_dpsidz_vrz(
-              m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
-              dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
-        }
+        detail::convert_effsource_dpsidr_vrz(
+            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+            dhS_dr_re_arr, dhS_dr_im_arr, dhS_dr_conv_re, dhS_dr_conv_im);
+        detail::convert_effsource_dpsidz_vrz(
+            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+            dhS_dth_re_arr, dhS_dth_im_arr, dhS_dth_conv_re, dhS_dth_conv_im);
       }
       for (size_t a1 = 0; a1 < 4; ++a1) {
         for (size_t b = 0; b <= a1; ++b) {
@@ -474,28 +571,276 @@ NumericData::variables(
           singular_field.get(a1, b)[i] =
               hS_conv_re[comp] +
               std::complex<double>(0., 1.) * hS_conv_im[comp];
-          if (on_left or on_right) {
-            deriv_singular_field.get(0, a1, b)[i] =
-                dhS_conv_re[comp] +
-                std::complex<double>(0., 1.) * dhS_conv_im[comp];
-            deriv_singular_field.get(1, a1, b)[i] = 0.;
-          } else {
-            deriv_singular_field.get(0, a1, b)[i] = 0.;
-            deriv_singular_field.get(1, a1, b)[i] =
-                dhS_conv_re[comp] +
-                std::complex<double>(0., 1.) * dhS_conv_im[comp];
-          }
+          deriv_singular_field.get(0, a1, b)[i] =
+              dhS_dr_conv_re[comp] +
+              std::complex<double>(0., 1.) * dhS_dr_conv_im[comp];
+          deriv_singular_field.get(1, a1, b)[i] =
+              dhS_dth_conv_re[comp] +
+              std::complex<double>(0., 1.) * dhS_dth_conv_im[comp];
         }
       }
       // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
     }
-  } else {
-    for (size_t i = 0; i < singular_field.size(); i++) {
-      singular_field[i] = 0.;
+  }
+
+  return result;
+}
+
+// Fixed sources, plus diagnostic-only tags (e.g. Tags::RHSBoxPuncture). This
+// computes the same six tags as the overload above by calling it directly
+// (no added cost for the actual solve, which only ever calls that overload),
+// then adds the diagnostic-only computation on top.
+tuples::TaggedTuple<
+    ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
+    ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
+    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+    Tags::RawPuncture, Tags::EF_Puncture,Tags::RHSBoxPuncture>
+NumericData::variables(
+    const tnsr::I<DataVector, 2>& x,
+    tmpl::list<
+        ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
+        ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
+        Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+        Tags::RawPuncture, Tags::EF_Puncture,Tags::RHSBoxPuncture> /*meta*/,
+    const bool field_is_regularized) const {
+  const auto base = variables(x, source_tags{}, field_is_regularized);
+  tuples::TaggedTuple<
+      ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
+      ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+      Tags::RawPuncture, Tags::EF_Puncture,Tags::RHSBoxPuncture>
+      result{};
+  get<::Tags::FixedSource<Tags::MMode>>(result) =
+      get<::Tags::FixedSource<Tags::MMode>>(base);
+  get<Tags::SingularField>(result) = get<Tags::SingularField>(base);
+  get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
+      result) =
+      get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
+          base);
+  get<Tags::BoyerLindquistRadius>(result) =
+      get<Tags::BoyerLindquistRadius>(base);
+  get<Tags::RawEffSource>(result) = get<Tags::RawEffSource>(base);
+  get<Tags::EF_EffSource>(result) = get<Tags::EF_EffSource>(base);
+  get<Tags::RawPuncture>(result) = get<Tags::RawPuncture>(base);
+  get<Tags::EF_Puncture>(result) = get<Tags::EF_Puncture>(base);
+
+  const double black_hole_spin_ = circular_orbit_.black_hole_spin();
+  const double black_hole_mass_ = circular_orbit_.black_hole_mass();
+  const int version_ = circular_orbit_.version();
+  const int m_mode_number_ = circular_orbit_.m_mode_number();
+  const double a = black_hole_spin_ * black_hole_mass_;
+  const double M = black_hole_mass_;
+  const double r_plus = M * (1. + sqrt(1. - square(black_hole_spin_)));
+  const double r_minus = M * (1. - sqrt(1. - square(black_hole_spin_)));
+  const auto& r = get<0>(x);
+  const DataVector theta =
+      acos(get<1>(x));  // get<1>(x) is cos_theta when penetrating_horizon
+  const DataVector delta_phi = m_mode_number_ * a / (r_plus - r_minus) *
+                               log((r - r_plus) / (r - r_minus));
+  const ComplexDataVector rotation =
+      cos(delta_phi) + std::complex<double>(0., 1.) * sin(delta_phi);
+  const size_t num_points = get<0>(x).size();
+
+  tnsr::aa<ComplexDataVector, 3>& rhs_box_puncture =
+      get<Tags::RHSBoxPuncture>(result);
+  for (auto& component : rhs_box_puncture) {
+    component = ComplexDataVector(num_points, 0.0);
+  }
+
+  // RHSBoxPuncture = Seff - RetRetT (see Tags::RHSBoxPuncture doc comment).
+  // Each term uses the same sign-flip convention as effective_source in the
+  // overload above, but with a soft out-of-bounds check (contribute zero
+  // rather than erroring) since Seff and RetRetT each only cover part of the
+  // T-slicing region.
+  const std::array<std::pair<size_t, double>, 2> rhs_box_puncture_terms{
+      {{3, 1.}, {1, -1.}}};  // {interpolator index, sign}: Seff, RetRetT
+  for (const auto& [interp_index, sign] : rhs_box_puncture_terms) {
+    const auto& interp = interpolators_[interp_index].interpolator;
+    const std::array<std::array<double, 2>, 2> bounds{
+        {{{interp.lower_bound(0), interp.upper_bound(0)}},
+         {{interp.lower_bound(1), interp.upper_bound(1)}}}};
+    for (size_t i = 0; i < num_points; ++i) {
+      const double r_clamped = std::clamp(r[i], bounds[0][0], bounds[0][1]);
+      if (not equal_within_roundoff(r[i], r_clamped)) {
+        continue;  // Outside this dataset's r range
+      }
+      const double theta_clamped =
+          std::clamp(theta[i], bounds[1][0], bounds[1][1]);
+      if ((theta[i] < bounds[1][0] or theta[i] > bounds[1][1]) and
+          not(equal_within_roundoff(theta[i], 0., 0.15) or
+              equal_within_roundoff(theta[i], M_PI, 0.15) or
+              equal_within_roundoff(theta[i], bounds[1][0]) or
+              equal_within_roundoff(theta[i], bounds[1][1]))) {
+        continue;  // Outside this dataset's theta range
+      }
+      const auto weights = interp.get_weights(r_clamped, theta_clamped);
+      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
+      std::array<double, 10> src_re_arr{};
+      std::array<double, 10> src_im_arr{};
+      std::array<double, 10> src_conv_re{};
+      std::array<double, 10> src_conv_im{};
+      for (size_t k = 0; k < 10; ++k) {
+        src_re_arr[k] = interp.interpolate(weights, 2 * k);
+        src_im_arr[k] = interp.interpolate(weights, 2 * k + 1);
+        if (pi_2_rotation_) {
+          const std::complex<double> rotated =
+              (src_re_arr[k] +
+               std::complex<double>(0., 1.) * src_im_arr[k]) *
+              (2. * M_PI * rotation[i]);
+          src_re_arr[k] = rotated.real();
+          src_im_arr[k] = rotated.imag();
+        }
+      }
+      if (version_ == 2) {
+        detail::convert_effsource_Seff_vr(m_mode_number_, a, r[i],
+                                          get<1>(x)[i], src_re_arr,
+                                          src_im_arr, src_conv_re,
+                                          src_conv_im);
+      } else if (version_ == 3) {
+        detail::convert_effsource_Seff_vrz(m_mode_number_, a, r[i],
+                                           get<1>(x)[i], src_re_arr,
+                                           src_im_arr, src_conv_re,
+                                           src_conv_im);
+      }
+      for (size_t a1 = 0; a1 < 4; ++a1) {
+        for (size_t b = 0; b <= a1; ++b) {
+          const size_t comp =
+              tnsr::aa<ComplexDataVector, 3>::get_storage_index(
+                  std::array<size_t, 2>{{a1, b}});
+          rhs_box_puncture.get(a1, b)[i] +=
+              sign * (-gsl::at(src_conv_re, comp) -
+                     std::complex<double>(0., 1.) *
+                         gsl::at(src_conv_im, comp));
+        }
+      }
+      // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
     }
-    for (size_t i = 0; i < deriv_singular_field.size(); i++) {
-      deriv_singular_field[i] = 0.;
+  }
+
+  return result;
+}
+
+tuples::TaggedTuple<
+    Tags::SingularField,
+    ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>
+NumericData::boundary_face_variables(const tnsr::I<DataVector, 2>& x,
+                                     const size_t face) const {
+  ASSERT(face < 4,
+         "face must be 0 (Left), 1 (Right), 2 (Bottom), or 3 (Top), but got "
+             << face);
+  // Left/Right (face 0/1): normal is r, parameterized by theta.
+  // Bottom/Top (face 2/3): normal is theta, parameterized by r.
+  const bool on_r_face = (face == 0 or face == 1);
+  const double black_hole_spin_ = circular_orbit_.black_hole_spin();
+  const double black_hole_mass_ = circular_orbit_.black_hole_mass();
+  const int version_ = circular_orbit_.version();
+  const int m_mode_number_ = circular_orbit_.m_mode_number();
+  const double a = black_hole_spin_ * black_hole_mass_;
+  const double M = black_hole_mass_;
+  const double r_plus = M * (1. + sqrt(1. - square(black_hole_spin_)));
+  const double r_minus = M * (1. - sqrt(1. - square(black_hole_spin_)));
+  const auto& r = get<0>(x);
+  const DataVector theta = acos(get<1>(x));
+  const DataVector delta_phi = m_mode_number_ * a / (r_plus - r_minus) *
+                               log((r - r_plus) / (r - r_minus));
+  const ComplexDataVector rotation =
+      cos(delta_phi) + std::complex<double>(0., 1.) * sin(delta_phi);
+
+  tuples::TaggedTuple<
+      Tags::SingularField,
+      ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>
+      result{};
+  const size_t num_points = get<0>(x).size();
+  tnsr::aa<ComplexDataVector, 3>& singular_field =
+      get<Tags::SingularField>(result);
+  auto& deriv_singular_field =
+      get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
+          result);
+  for (auto& component : singular_field) {
+    component = ComplexDataVector(num_points, 0.0);
+  }
+  for (auto& component : deriv_singular_field) {
+    component = ComplexDataVector(num_points, 0.0);
+  }
+
+  const auto& binterp = boundary_interpolators_[face].interpolator;
+  for (size_t i = 0; i < num_points; ++i) {
+    const double coord_i = on_r_face ? theta[i] : r[i];
+    const auto weights = binterp.get_weights(coord_i);
+
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
+    std::array<double, 10> hS_re_arr{};
+    std::array<double, 10> hS_im_arr{};
+    std::array<double, 10> dhS_re_arr{};
+    std::array<double, 10> dhS_im_arr{};
+    std::array<double, 10> hS_conv_re{};
+    std::array<double, 10> hS_conv_im{};
+    std::array<double, 10> dhS_conv_re{};
+    std::array<double, 10> dhS_conv_im{};
+    for (size_t k = 0; k < 10; ++k) {
+      hS_re_arr[k] = binterp.interpolate(weights, 2 * k);
+      hS_im_arr[k] = binterp.interpolate(weights, 2 * k + 1);
+      dhS_re_arr[k] = binterp.interpolate(weights, 20 + 2 * k);
+      dhS_im_arr[k] = binterp.interpolate(weights, 20 + 2 * k + 1);
+      if (pi_2_rotation_) {
+        const std::complex<double> rotated_hS =
+            (hS_re_arr[k] + std::complex<double>(0., 1.) * hS_im_arr[k]) *
+            (2. * M_PI * rotation[i]);
+        hS_re_arr[k] = rotated_hS.real();
+        hS_im_arr[k] = rotated_hS.imag();
+        const std::complex<double> rotated_dhS =
+            2. * M_PI * rotation[i] *
+            (dhS_re_arr[k] + std::complex<double>(0., 1.) * dhS_im_arr[k]);
+        dhS_re_arr[k] = rotated_dhS.real();
+        dhS_im_arr[k] = rotated_dhS.imag();
+      }
     }
+    if (version_ == 2) {
+      detail::convert_effsource_psi_vr(m_mode_number_, a, r[i], get<1>(x)[i],
+                                       hS_re_arr, hS_im_arr, hS_conv_re,
+                                       hS_conv_im);
+      if (on_r_face) {
+        detail::convert_effsource_dpsidr_vr(
+            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+            dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+      } else {
+        detail::convert_effsource_dpsidz_vr(
+            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+            dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+      }
+    } else if (version_ == 3) {
+      detail::convert_effsource_psi_vrz(m_mode_number_, a, r[i], get<1>(x)[i],
+                                        hS_re_arr, hS_im_arr, hS_conv_re,
+                                        hS_conv_im);
+      if (on_r_face) {
+        detail::convert_effsource_dpsidr_vrz(
+            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+            dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+      } else {
+        detail::convert_effsource_dpsidz_vrz(
+            m_mode_number_, a, r[i], get<1>(x)[i], hS_re_arr, hS_im_arr,
+            dhS_re_arr, dhS_im_arr, dhS_conv_re, dhS_conv_im);
+      }
+    }
+    for (size_t a1 = 0; a1 < 4; ++a1) {
+      for (size_t b = 0; b <= a1; ++b) {
+        const size_t comp = tnsr::aa<ComplexDataVector, 3>::get_storage_index(
+            std::array<size_t, 2>{{a1, b}});
+        singular_field.get(a1, b)[i] =
+            hS_conv_re[comp] +
+            std::complex<double>(0., 1.) * hS_conv_im[comp];
+        if (on_r_face) {
+          deriv_singular_field.get(0, a1, b)[i] =
+              dhS_conv_re[comp] +
+              std::complex<double>(0., 1.) * dhS_conv_im[comp];
+        } else {
+          deriv_singular_field.get(1, a1, b)[i] =
+              dhS_conv_re[comp] +
+              std::complex<double>(0., 1.) * dhS_conv_im[comp];
+        }
+      }
+    }
+    // NOLINTEND(cppcoreguidelines-pro-bounds-constant-array-index)
   }
   return result;
 }

@@ -334,14 +334,15 @@ tuples::TaggedTuple<Tags::MMode> CircularOrbit::variables(
 tuples::TaggedTuple<
     ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
     ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
+    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+    Tags::RawPuncture, Tags::EF_Puncture>
 CircularOrbit::variables(
     const tnsr::I<DataVector, 2>& x,
     tmpl::list<
         ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
         ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-        Tags::BoyerLindquistRadius, Tags::RawEffSource,
-        Tags::EF_EffSource> /*meta*/) const {
+        Tags::BoyerLindquistRadius, Tags::RawEffSource,Tags::EF_EffSource,
+        Tags::RawPuncture, Tags::EF_Puncture> /*meta*/) const {
   const double a = black_hole_spin_ * black_hole_mass_;
   const double M = black_hole_mass_;
   const double r_0 = orbital_radius_;
@@ -360,7 +361,8 @@ CircularOrbit::variables(
   tuples::TaggedTuple<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource>
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+      Tags::RawPuncture, Tags::EF_Puncture>
       result{};
   const auto& r_star_or_r = get<0>(x);
   if (hyperboloidal_slicing_transitions_.has_value() and
@@ -413,11 +415,18 @@ CircularOrbit::variables(
       get<Tags::RawEffSource>(result);
   tnsr::aa<ComplexDataVector, 3>& ef_eff_source =
       get<Tags::EF_EffSource>(result);
+  tnsr::aa<ComplexDataVector, 3>& raw_puncture =
+      get<Tags::RawPuncture>(result);
+  tnsr::aa<ComplexDataVector, 3>& ef_puncture =
+      get<Tags::EF_Puncture>(result);
   for (size_t i = 0; i < singular_field.size(); i++) {
     effective_source[i].destructive_resize(num_points);
     singular_field[i].destructive_resize(num_points);
     raw_eff_source[i].destructive_resize(num_points);
     ef_eff_source[i].destructive_resize(num_points);
+   // CircularOrbit has no puncture h5 data; only NumericData populates this.
+    raw_puncture[i] = ComplexDataVector(num_points, 0.);
+    ef_puncture[i] = ComplexDataVector(num_points, 0.);
   }
   auto& deriv_singular_field =
       get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
@@ -572,6 +581,47 @@ CircularOrbit::variables(
       }
     }
   }
+  return result;
+}
+
+// Fixed sources, plus diagnostic-only tags (e.g. Tags::RHSBoxPuncture)
+tuples::TaggedTuple<
+    ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
+    ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
+    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+    Tags::RawPuncture, Tags::EF_Puncture,Tags::RHSBoxPuncture>
+CircularOrbit::variables(
+    const tnsr::I<DataVector, 2>& x,
+    tmpl::list<
+        ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
+        ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
+        Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+        Tags::RawPuncture, Tags::EF_Puncture,
+        Tags::RHSBoxPuncture> /*meta*/) const {
+  const auto base = variables(x, source_tags{});
+  tuples::TaggedTuple<
+      ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
+      ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+      Tags::RawPuncture, Tags::EF_Puncture,Tags::RHSBoxPuncture>
+      result{};
+  get<::Tags::FixedSource<Tags::MMode>>(result) =
+      get<::Tags::FixedSource<Tags::MMode>>(base);
+  get<Tags::SingularField>(result) = get<Tags::SingularField>(base);
+  get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
+      result) =
+      get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
+          base);
+  get<Tags::BoyerLindquistRadius>(result) =
+      get<Tags::BoyerLindquistRadius>(base);
+  get<Tags::RawEffSource>(result) = get<Tags::RawEffSource>(base);
+  get<Tags::EF_EffSource>(result) = get<Tags::EF_EffSource>(base);
+  get<Tags::RawPuncture>(result) = get<Tags::RawPuncture>(base);
+  get<Tags::EF_Puncture>(result) = get<Tags::EF_Puncture>(base);
+  // 1st order: no 2nd-order correction term, so the RHS of the elliptic
+  // operator applied to the singular field is just the effective source.
+  get<Tags::RHSBoxPuncture>(result) =
+      get<::Tags::FixedSource<Tags::MMode>>(base);
   return result;
 }
 

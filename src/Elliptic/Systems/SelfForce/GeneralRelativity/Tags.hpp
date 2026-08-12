@@ -178,7 +178,43 @@ struct RawEffSource : db::SimpleTag {
 struct EF_EffSource : db::SimpleTag {
   using type = tnsr::aa<ComplexDataVector, 3>;
 };
+/*!
+ * \brief Raw puncture field (interior singular field), read directly from
+ * the h5 file's 'Puncture' dataset in the BL frame, before transformation.
+ */
+struct RawPuncture : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
+/*!
+ * \brief Puncture field in EF coordinate
+ *
+ * After transformation to EF coordinate
+ */
+struct EF_Puncture : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
 
+/*!
+ * \brief What the elliptic operator applied to the (2nd-order) singular
+ * field is expected to equal in the T-slicing region: $S^\mathrm{eff} -
+ * {}^{(2)} D_2 G[h^1, h^1]$.
+ *
+ * This is the right-hand side of the identity $\Box \Psi_m^\mathcal{P} =$
+ * `RHSBoxPuncture` (see `Test_NumericData.cpp`), not the result of actually
+ * applying the elliptic operator to the puncture field (that quantity, once
+ * computed, would be `Tags::BoxPuncture`).
+ *
+ * $S^\mathrm{eff}$ (`Seff`) is nonzero only inside the worldtube, and
+ * ${}^{(2)} D_2 G[h^1, h^1]$ (`RetRetT`) is zero-padded by construction
+ * inside the worldtube, so this reduces to $S^\mathrm{eff}$ inside the
+ * worldtube and $-{}^{(2)} D_2 G[h^1, h^1]$ outside it. This is distinct
+ * from `Tags::FixedSource<Tags::MMode>`, which encodes the
+ * regularized-vs-full-field switch used for the actual elliptic solve, not
+ * this diagnostic identity.
+ */
+struct RHSBoxPuncture : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
 
 /*!
  * \brief Blocks in which we use null slicing (vtu-slicing).
