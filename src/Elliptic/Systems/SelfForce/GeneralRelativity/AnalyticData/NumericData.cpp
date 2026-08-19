@@ -8,7 +8,9 @@
 #include <cstddef>
 // #include <effsource_gr.hpp>
 #include <effsource_comoving.hpp>
+#include <limits>
 #include <utility>
+#include <vector>
 
 #include "DataStructures/ComplexDataVector.hpp"
 #include "DataStructures/DataBox/Prefixes.hpp"
@@ -294,6 +296,48 @@ NumericData::variables(
   const std::array<std::array<double, 2>, 2> interpolator_bounds{
       {{{interpolator.lower_bound(0), interpolator.upper_bound(0)}},
        {{interpolator.lower_bound(1), interpolator.upper_bound(1)}}}};
+  // Diagnostic: flag elements whose local grid spacing is finer than the
+  // source data's grid spacing, where bilinear interpolation of the source
+  // can no longer be trusted to resolve additional refinement.
+  {
+    std::vector<double> unique_r(r.begin(), r.end());
+    std::sort(unique_r.begin(), unique_r.end());
+    unique_r.erase(std::unique(unique_r.begin(), unique_r.end(),
+                               [](const double a, const double b) {
+                                 return equal_within_roundoff(a, b);
+                               }),
+                   unique_r.end());
+    std::vector<double> unique_theta(theta.begin(), theta.end());
+    std::sort(unique_theta.begin(), unique_theta.end());
+    unique_theta.erase(
+        std::unique(unique_theta.begin(), unique_theta.end(),
+                    [](const double a, const double b) {
+                      return equal_within_roundoff(a, b);
+                    }),
+        unique_theta.end());
+    double local_dr_min = std::numeric_limits<double>::max();
+    for (size_t i = 1; i < unique_r.size(); ++i) {
+      local_dr_min = std::min(local_dr_min, unique_r[i] - unique_r[i - 1]);
+    }
+    double local_dtheta_min = std::numeric_limits<double>::max();
+    for (size_t i = 1; i < unique_theta.size(); ++i) {
+      local_dtheta_min =
+          std::min(local_dtheta_min, unique_theta[i] - unique_theta[i - 1]);
+    }
+    const double dr_source =
+        (interpolator_bounds[0][1] - interpolator_bounds[0][0]) /
+        static_cast<double>(interpolator.extents(0) - 1);
+    const double dtheta_source =
+        (interpolator_bounds[1][1] - interpolator_bounds[1][0]) /
+        static_cast<double>(interpolator.extents(1) - 1);
+    if (local_dr_min < dr_source or local_dtheta_min < dtheta_source) {
+      Parallel::printf(
+          "Over-refined: r=[%f,%f] local_dr_min=%e (source dr=%e), "
+          "local_dtheta_min=%e (source dtheta=%e)\n",
+          r[0], r[r.size() - 1], local_dr_min, dr_source, local_dtheta_min,
+          dtheta_source);
+    }
+  }
   // Interpolate data
   // Ordering of components:
   // tt, tr, ttheta, tphi, rr, rtheta, rphi, theta theta, theta phi, phi phi
