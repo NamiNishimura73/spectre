@@ -7,6 +7,7 @@
 #include "effsource.h"
 #include <stdio.h>
 #include <gsl/gsl_sf.h>
+#include <gsl/gsl_math.h>
 
 /* The particle's coordinate location and 4-velocity */
 static struct coordinate xp;
@@ -160,23 +161,15 @@ void effsource_PhiS_m(int m, struct coordinate * x, double * PhiS)
   const double z = (pow(rho,2) + pow(zc,2)/2.0)/(rho*R0);
 
   double R[10], ZpR[10];
-  int mBlock, mp1, mm1;
   for(int i=0; i<=8; i+=2)
   {
     int n = i-7;
-    if (1+n/2.0 <= 0) {
-      mBlock = -abs(m);
-      mm1 = -abs(m-1);
-      mp1 = -abs(m+1);
-    } else {
-      mBlock = abs(m);
-      mm1 = abs(m-1);
-      mp1 = abs(m+1);
-    }
-    const double pch = gsl_sf_poch(1+n/2.0, mBlock);
+    int mm1 = m-1;
+    int mp1 = m+1;
+    const double pch = gsl_sf_poch(1+n/2.0, m);
     const double pchmp1 = gsl_sf_poch(1+n/2.0, mp1);
     const double pchmm1 = gsl_sf_poch(1+n/2.0, mm1);
-    R[i]   = 2*M_PI*pow(-1,mBlock)*pow(rho,n/2.0)*pow(R0,n/2.0)*LegendreP(n/2.0, mBlock, z)/pch;
+    R[i]   = 2*M_PI*pow(-1,m)*pow(rho,n/2.0)*pow(R0,n/2.0)*LegendreP(n/2.0, m, z)/pch;
     ZpR[i] = pow(-1,m)*M_PI*zc*pow(rho,n/2.0)*pow(R0,n/2.0)*(LegendreP(n/2.0, mm1, z)/pchmm1-LegendreP(n/2.0, mp1, z)/pchmp1);
   }
 
@@ -352,8 +345,6 @@ void effsource_calc_m(int m, struct coordinate * x,
   double dA_dtheta[5], dalpha_dtheta;
   double d2A_dtheta2[5], d2alpha_dtheta2;
 
-  double s, ds_dr, d2s_dr2, ds_dtheta, d2s_dtheta2;
-
   double dPhiS_dt, dPhiS_dr, dPhiS_dth, dPhiS_dph, d2PhiS_dt2, d2PhiS_dtr, d2PhiS_dtth;
   double d2PhiS_dtph, d2PhiS_dr2, d2PhiS_drth, d2PhiS_drph, d2PhiS_dth2, d2PhiS_dthph, d2PhiS_dph2;
 
@@ -439,29 +430,21 @@ void effsource_calc_m(int m, struct coordinate * x,
   /* m-mode integrals of R */
   double R[9], DrhoR[9], D2rhoR[9];
   double ZpR[9], DrhoZpR[9], D2rhoZpR[9];
-  int mBlock, mp1, mm1;
   for(int i=0; i<=8; i+=2)
   {
     int n = i-7;
-    if (1+n/2.0 <= 0) {
-      mBlock = -abs(m);
-      mm1 = -abs(m-1);
-      mp1 = -abs(m+1);
-    } else {
-      mBlock = abs(m);
-      mm1 = abs(m-1);
-      mp1 = abs(m+1);
-    }
-    const double pch = gsl_sf_poch(1+n/2.0, mBlock);
+    int mm1 = m-1;
+    int mp1 = m+1;
+    const double pch = gsl_sf_poch(1+n/2.0, m);
     const double pchmp1 = gsl_sf_poch(1+n/2.0, mp1);
     const double pchmm1 = gsl_sf_poch(1+n/2.0, mm1);
-    R[i]   = 2*M_PI*pow(-1,mBlock)*pow(rho,n/2.0)*pow(R0,n/2.0)*LegendreP(n/2.0, mBlock, z)/pch;
+    R[i]   = 2*M_PI*pow(-1,m)*pow(rho,n/2.0)*pow(R0,n/2.0)*LegendreP(n/2.0, m, z)/pch;
     ZpR[i] = pow(-1,m)*M_PI*zc*pow(rho,n/2.0)*pow(R0,n/2.0)*(LegendreP(n/2.0, mm1, z)/pchmm1-LegendreP(n/2.0, mp1, z)/pchmp1);
 
-    DrhoR[i]   = 2*pow(-1,mBlock)*M_PI*((-2 + 2*mBlock - n)*pow(R0,(-2 + n)/2.)*pow(rho,n/2.)*LegendreP(1 + n/2.,mBlock,z) + (1 + n)*pow(R0,2*(-1 + n/4.))*pow(rho,-1 + n/2.)*(2*pow(rho,2) + pow(zc,2))*LegendreP(n/2.,mBlock,z))/pch;
-    D2rhoR[i]  = (2*pow(-1,mBlock)*M_PI*((-2 + 2*mBlock - n)*pow(R0,(-6 + n)/2.)*pow(rho,-1 + n/2.)*((5 + 4*n)*pow(rho,2) + (3 + 2*n)*pow(zc,2))*LegendreP(1 + n/2.,mBlock,z) + 
-       (-4 + 2*mBlock - n)*(-2 + 2*mBlock - n)*pow(R0,2*(-1 + n/4.))*pow(rho,n/2.)*LegendreP(2 + n/2.,mBlock,z) + 
-       (1 + n)*pow(R0,2*(-2 + n/4.))*pow(rho,-2 + n/2.)*(2*pow(rho,4) + 3*pow(rho,2)*pow(zc,2) + n*pow(2*pow(rho,2) + pow(zc,2),2))*LegendreP(n/2.,mBlock,z)))/pch;
+    DrhoR[i]   = 2*pow(-1,m)*M_PI*((-2 + 2*m - n)*pow(R0,(-2 + n)/2.)*pow(rho,n/2.)*LegendreP(1 + n/2.,m,z) + (1 + n)*pow(R0,2*(-1 + n/4.))*pow(rho,-1 + n/2.)*(2*pow(rho,2) + pow(zc,2))*LegendreP(n/2.,m,z))/pch;
+    D2rhoR[i]  = (2*pow(-1,m)*M_PI*((-2 + 2*m - n)*pow(R0,(-6 + n)/2.)*pow(rho,-1 + n/2.)*((5 + 4*n)*pow(rho,2) + (3 + 2*n)*pow(zc,2))*LegendreP(1 + n/2.,m,z) + 
+       (-4 + 2*m - n)*(-2 + 2*m - n)*pow(R0,2*(-1 + n/4.))*pow(rho,n/2.)*LegendreP(2 + n/2.,m,z) + 
+       (1 + n)*pow(R0,2*(-2 + n/4.))*pow(rho,-2 + n/2.)*(2*pow(rho,4) + 3*pow(rho,2)*pow(zc,2) + n*pow(2*pow(rho,2) + pow(zc,2),2))*LegendreP(n/2.,m,z)))/pch;
 
     DrhoZpR[i] = pow(-1,m)*M_PI*zc*(((-2 + 2*mm1 - n)*pow(R0,(-2 + n)/2.)*pow(rho,n/2.)*LegendreP(1 + n/2.,mm1,z))/pchmm1
       + ((2 - 2*mp1 + n)*pow(R0,(-2 + n)/2.)*pow(rho,n/2.)*LegendreP(1 + n/2.,mp1,z))/pchmp1
@@ -650,6 +633,47 @@ void effsource_calc_m(int m, struct coordinate * x,
 
   src[0] = effsrc*cosmph;
   src[1] = - effsrc*sinmph;
+}
+
+double HarmonicNumber(double x)
+{
+	return M_EULER + gsl_sf_psi(1 + x);
+}
+
+void effsource_calc_m_series(int m, struct coordinate * x, double *src)
+{
+  const double r      = x->r;
+  const double rp     = xp.r;
+  const double th     = x->theta;
+  const double thp    = xp.theta;
+  const double Omega  = M / (a*M + sqrt(M*pow(rp,3)));
+
+  const double dr     = r - rp;
+  const double dth    = th - thp;
+
+  const double alpha = alpha20*dr*dr + alpha02*dth*dth;
+  const double zc = sqrt(beta);
+  const double rho = sqrt(alpha);
+
+  const double srcO0 = (M*pow(-1 + a*Omega,4)*(96*pow(a,9)*pow(M,2)*Omega*(pow(M,2) - 4*M*rp + 3*pow(rp,2)) - 96*pow(a,8)*pow(M,2)*(pow(M,2) - 5*M*rp + 4*pow(rp,2)) + 8*pow(a,6)*M*rp*(45*pow(M,4) - 249*pow(M,3)*rp + 219*pow(M,2)*pow(rp,2) + 31*M*pow(rp,3) - 48*pow(rp,4)) + 3*pow(rp,8)*(-116*pow(M,4) + 243*pow(M,3)*rp - 139*pow(M,2)*pow(rp,2) + 17*M*pow(rp,3) + 3*pow(rp,4)) - 8*pow(a,7)*M*Omega*rp*(45*pow(M,4) - 203*pow(M,3)*rp + 199*pow(M,2)*pow(rp,2) - 67*M*pow(rp,3) + 24*pow(rp,4)) - 3*a*Omega*pow(rp,8)*(348*pow(M,4) - 819*pow(M,3)*rp + 705*pow(M,2)*pow(rp,2) - 245*M*pow(rp,3) + 27*pow(rp,4)) + pow(a,3)*Omega*pow(rp,5)*(696*pow(M,5) - 693*pow(M,4)*rp + 576*pow(M,3)*pow(rp,2) - 1202*pow(M,2)*pow(rp,3) + 796*M*pow(rp,4) - 157*pow(rp,5)) + 3*pow(a,2)*pow(rp,5)*(-696*pow(M,5) + 1863*pow(M,4)*rp - 1748*pow(M,3)*pow(rp,2) + 650*pow(M,2)*pow(rp,3) - 80*M*pow(rp,4) + 3*pow(rp,5)) - 12*pow(a,4)*M*pow(rp,2)*(29*pow(M,5) - 177*pow(M,4)*rp + 96*pow(M,3)*pow(rp,2) + 220*pow(M,2)*pow(rp,3) - 221*M*pow(rp,4) + 49*pow(rp,5)) + 4*pow(a,5)*Omega*pow(rp,2)*(87*pow(M,6) - 441*pow(M,5)*rp + 468*pow(M,4)*pow(rp,2) - 296*pow(M,3)*pow(rp,3) + 193*pow(M,2)*pow(rp,4) + M*pow(rp,5) - 24*pow(rp,6)))*zc)/(24.*(-1 + 2*m)*(1 + 2*m)*pow(rp,12)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*pow(pow(a,2) + rp*(-2*M + rp),2));
+  const double srcO1 = (dr==0&&dth==0)? 0 : (M*pow(-1 + a*Omega,4)*(-192*pow(a,11)*pow(M,2)*Omega*(2*pow(M,2) - 7*M*rp + 3*pow(rp,2)) + 192*pow(a,10)*pow(M,2)*(2*pow(M,2) - 9*M*rp + 4*pow(rp,2)) - 48*pow(a,8)*M*rp*(46*pow(M,4) - 231*pow(M,3)*rp + 146*pow(M,2)*pow(rp,2) + 10*M*pow(rp,3) - 16*pow(rp,4)) + 16*pow(a,9)*M*Omega*rp*(138*pow(M,4) - 553*pow(M,3)*rp + 396*pow(M,2)*pow(rp,2) - 128*M*pow(rp,3) + 24*pow(rp,4)) - 3*pow(rp,9)*(928*pow(M,5) - 1923*pow(M,4)*rp + 1448*pow(M,3)*pow(rp,2) - 442*pow(M,2)*pow(rp,3) + 32*M*pow(rp,4) + 5*pow(rp,5)) + 3*a*Omega*pow(rp,9)*(-2784*pow(M,5) + 6531*pow(M,4)*rp - 6390*pow(M,3)*pow(rp,2) + 3220*pow(M,2)*pow(rp,3) - 794*M*pow(rp,4) + 73*pow(rp,5)) + 8*pow(a,6)*M*pow(rp,2)*(534*pow(M,5) - 2967*pow(M,4)*rp + 1974*pow(M,3)*pow(rp,2) + 998*pow(M,2)*pow(rp,3) - 1142*M*pow(rp,4) + 243*pow(rp,5)) - 3*pow(a,2)*pow(rp,6)*(5568*pow(M,6) - 14883*pow(M,5)*rp + 14997*pow(M,4)*pow(rp,2) - 7294*pow(M,3)*pow(rp,3) + 1822*pow(M,2)*pow(rp,4) - 223*M*pow(rp,5) + 13*pow(rp,6)) + 8*pow(a,7)*Omega*pow(rp,2)*(-534*pow(M,6) + 2419*pow(M,5)*rp - 2264*pow(M,4)*pow(rp,2) + 1336*pow(M,3)*pow(rp,3) - 503*pow(M,2)*pow(rp,4) + 26*M*pow(rp,5) + 24*pow(rp,6)) + pow(a,3)*Omega*pow(rp,6)*(5568*pow(M,6) - 5481*pow(M,5)*rp + 10419*pow(M,4)*pow(rp,2) - 17854*pow(M,3)*pow(rp,3) + 13190*pow(M,2)*pow(rp,4) - 4233*M*pow(rp,5) + 503*pow(rp,6)) - 6*pow(a,4)*pow(rp,3)*(464*pow(M,7) - 2832*pow(M,6)*rp + 260*pow(M,5)*pow(rp,2) + 5919*pow(M,4)*pow(rp,3) - 5977*pow(M,3)*pow(rp,4) + 2225*pow(M,2)*pow(rp,5) - 303*M*pow(rp,6) + 4*pow(rp,7)) + 2*pow(a,5)*Omega*pow(rp,3)*(1392*pow(M,7) - 7056*pow(M,6)*rp + 6444*pow(M,5)*pow(rp,2) - 5579*pow(M,4)*pow(rp,3) + 2593*pow(M,3)*pow(rp,4) + 1107*pow(M,2)*pow(rp,5) - 1213*M*pow(rp,6) + 248*pow(rp,7)))*zc*dr)/(48.*(-1 + 2*m)*(1 + 2*m)*pow(rp,13)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*pow(pow(a,2) + rp*(-2*M + rp),3));
+	const double srcO2 = (dr==0&&dth==0)? 0 : (pow(-1 + a*Omega,6)*pow(rho,2)*(-1536*pow(a,15)*pow(M,4)*Omega*(pow(M,2) - 6*M*rp + 5*pow(rp,2)) + 1536*pow(a,14)*pow(M,4)*(pow(M,2) - 7*M*rp + 6*pow(rp,2)) + 128*pow(a,13)*pow(M,3)*Omega*rp*(69*pow(M,4) - 451*pow(M,3)*rp + 443*pow(M,2)*pow(rp,2) + 2*(-3 + 10*pow(m,2))*M*pow(rp,3) - 6*(9 + 4*pow(m,2))*pow(rp,4)) - 128*pow(a,12)*pow(M,3)*rp*(69*pow(M,4) - 521*pow(M,3)*rp + 475*pow(M,2)*pow(rp,2) + 4*(53 + 5*pow(m,2))*M*pow(rp,3) - 6*(39 + 4*pow(m,2))*pow(rp,4)) + (3*M - rp)*pow(rp,14)*(180*(-1 + 4*pow(m,2))*pow(M,5) + 3*(-259 + 268*pow(m,2))*pow(M,4)*rp + (-7687 + 33820*pow(m,2))*pow(M,3)*pow(rp,2) + (11185 - 46084*pow(m,2))*pow(M,2)*pow(rp,3) + 3*(-1667 + 6732*pow(m,2))*M*pow(rp,4) + 724*(1 - 4*pow(m,2))*pow(rp,5)) + a*Omega*pow(rp,14)*(1620*(-1 + 4*pow(m,2))*pow(M,6) - 9*(-161 + 4484*pow(m,2))*pow(M,5)*rp + 12*(-5479 + 27484*pow(m,2))*pow(M,4)*pow(rp,2) + 2*(76337 - 329252*pow(m,2))*pow(M,3)*pow(rp,3) + 4*(-30769 + 126820*pow(m,2))*pow(M,2)*pow(rp,4) - 27*(-1543 + 6236*pow(m,2))*M*pow(rp,5) + 5068*(-1 + 4*pow(m,2))*pow(rp,6)) - 64*pow(a,11)*pow(M,2)*Omega*pow(rp,2)*(267*pow(M,6) - 1891*pow(M,5)*rp + 1792*pow(M,4)*pow(rp,2) + 2*(359 + 118*pow(m,2))*pow(M,3)*pow(rp,3) - (1341 + 188*pow(m,2))*pow(M,2)*pow(rp,4) + 2*(355 - 118*pow(m,2))*M*pow(rp,5) + 9*(-31 + 28*pow(m,2))*pow(rp,6)) + 64*pow(a,10)*pow(M,2)*pow(rp,2)*(267*pow(M,6) - 2165*pow(M,5)*rp + 1508*pow(M,4)*pow(rp,2) + 2*(1845 + 118*pow(m,2))*pow(M,3)*pow(rp,3) - 2*(2151 + 64*pow(m,2))*pow(M,2)*pow(rp,4) + (941 - 496*pow(m,2))*M*pow(rp,5) + 3*(7 + 164*pow(m,2))*pow(rp,6)) - pow(a,3)*Omega*pow(rp,11)*(1080*(-1 + 4*pow(m,2))*pow(M,7) + 3*(14963 + 18996*pow(m,2))*pow(M,6)*rp - 3*(54659 + 9332*pow(m,2))*pow(M,5)*pow(rp,2) + 6*(26809 + 4412*pow(m,2))*pow(M,4)*pow(rp,3) + 2*(-50939 + 68652*pow(m,2))*pow(M,3)*pow(rp,4) + (93345 - 336836*pow(m,2))*pow(M,2)*pow(rp,5) + (-53065 + 213156*pow(m,2))*M*pow(rp,6) - 10192*(-1 + 4*pow(m,2))*pow(rp,7)) + pow(a,2)*pow(rp,11)*(3240*(-1 + 4*pow(m,2))*pow(M,7) - 3*(-659 + 49740*pow(m,2))*pow(M,6)*rp + 33*(-3755 + 24876*pow(m,2))*pow(M,5)*pow(rp,2) + 2*(172543 - 819100*pow(m,2))*pow(M,4)*pow(rp,3) + 2*(-153589 + 654484*pow(m,2))*pow(M,3)*pow(rp,4) - 27*(-3835 + 15532*pow(m,2))*pow(M,2)*pow(rp,5) + (-7523 + 28940*pow(m,2))*M*pow(rp,6) + 1456*(-1 + 4*pow(m,2))*pow(rp,7)) - 4*pow(a,6)*pow(rp,6)*(41760*pow(M,8) - 6*(26753 + 652*pow(m,2))*pow(M,7)*rp - 20*(-9001 + 1936*pow(m,2))*pow(M,6)*pow(rp,2) + 4*(-11405 + 41204*pow(m,2))*pow(M,5)*pow(rp,3) - (10757 + 256156*pow(m,2))*pow(M,4)*pow(rp,4) + 3*(1205 + 39788*pow(m,2))*pow(M,3)*pow(rp,5) + 5*(-2503 + 6940*pow(m,2))*pow(M,2)*pow(rp,6) + 3*(1949 - 7732*pow(m,2))*M*pow(rp,7) + 48*(1 - 4*pow(m,2))*pow(rp,8)) - 16*pow(a,8)*M*pow(rp,3)*(696*pow(M,8) - 6036*pow(M,7)*rp - 3672*pow(M,6)*pow(rp,2) + 12*(3538 + 155*pow(m,2))*pow(M,5)*pow(rp,3) + 2*(-25285 + 994*pow(m,2))*pow(M,4)*pow(rp,4) - 2*(-8755 + 7518*pow(m,2))*pow(M,3)*pow(rp,5) + (-1441 + 20040*pow(m,2))*pow(M,2)*pow(rp,6) + 5*(35 - 1228*pow(m,2))*M*pow(rp,7) + 312*(1 - 4*pow(m,2))*pow(rp,8)) - 4*pow(a,5)*Omega*pow(rp,8)*(135*(-1 + 4*pow(m,2))*pow(M,8) + 12*(1415 - 2028*pow(m,2))*pow(M,7)*rp + 3*(-24395 + 28972*pow(m,2))*pow(M,6)*pow(rp,2) - 12*(-9587 + 16344*pow(m,2))*pow(M,5)*pow(rp,3) + (-69925 + 206628*pow(m,2))*pow(M,4)*pow(rp,4) + (25031 - 145564*pow(m,2))*pow(M,3)*pow(rp,5) + 8*(-1121 + 7422*pow(m,2))*pow(M,2)*pow(rp,6) + (-1679 + 4652*pow(m,2))*M*pow(rp,7) + 1617*(1 - 4*pow(m,2))*pow(rp,8)) + 4*pow(a,4)*pow(rp,8)*(135*(-1 + 4*pow(m,2))*pow(M,8) - 72*(523 + 444*pow(m,2))*pow(M,7)*rp + 3*(34577 + 41404*pow(m,2))*pow(M,6)*pow(rp,2) - 4*(22537 + 49736*pow(m,2))*pow(M,5)*pow(rp,3) + (56307 + 16580*pow(m,2))*pow(M,4)*pow(rp,4) + (-68115 + 235084*pow(m,2))*pow(M,3)*pow(rp,5) - 80*(-540 + 2147*pow(m,2))*pow(M,2)*pow(rp,6) + 27*(-303 + 1196*pow(m,2))*M*pow(rp,7) + 231*(-1 + 4*pow(m,2))*pow(rp,8)) + 4*pow(a,7)*Omega*pow(rp,6)*(25056*pow(M,8) - 6*(12689 + 652*pow(m,2))*pow(M,7)*rp - 4*(-29519 + 6680*pow(m,2))*pow(M,6)*pow(rp,2) + 4*(-38823 + 26444*pow(m,2))*pow(M,5)*pow(rp,3) + (151491 - 190076*pow(m,2))*pow(M,4)*pow(rp,4) + (-71419 + 144940*pow(m,2))*pow(M,3)*pow(rp,5) + (15985 - 59844*pow(m,2))*pow(M,2)*pow(rp,6) + (-2195 + 12172*pow(m,2))*M*pow(rp,7) + 336*(-1 + 4*pow(m,2))*pow(rp,8)) + 16*pow(a,9)*M*Omega*pow(rp,3)*(696*pow(M,8) - 5316*pow(M,7)*rp + 936*pow(M,6)*pow(rp,2) + 20*(758 + 93*pow(m,2))*pow(M,5)*pow(rp,3) + 4*(-5439 + 137*pow(m,2))*pow(M,4)*pow(rp,4) + 2*(9547 - 4198*pow(m,2))*pow(M,3)*pow(rp,5) + (-12591 + 12824*pow(m,2))*pow(M,2)*pow(rp,6) + (3265 - 5764*pow(m,2))*M*pow(rp,7) + 24*(-5 + 36*pow(m,2))*pow(rp,8)))*zc)/(384.*(-1 + 2*m)*(1 + 2*m)*pow(rp,19)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*pow(pow(a,2) + rp*(-2*M + rp),3))
+		+ (pow(-1 + a*Omega,4)*(384*pow(a,13)*pow(M,3)*Omega*(2*pow(M,2) - 7*M*rp + 3*pow(rp,2)) - 384*pow(a,12)*pow(M,3)*(2*pow(M,2) - 9*M*rp + 4*pow(rp,2)) - 32*pow(a,11)*pow(M,2)*Omega*rp*(174*pow(M,4) - 691*pow(M,3)*rp + 492*pow(M,2)*pow(rp,2) + 4*(-38 + 9*pow(m,2))*M*pow(rp,3) + 3*(9 - 4*pow(m,2))*pow(rp,4)) + 96*pow(a,10)*pow(M,2)*rp*(58*pow(M,4) - 289*pow(M,3)*rp + 188*pow(M,2)*pow(rp,2) + 12*pow(m,2)*M*pow(rp,3) - (15 + 4*pow(m,2))*pow(rp,4)) + 8*pow(a,9)*M*Omega*pow(rp,2)*(1896*pow(M,6) - 8432*pow(M,5)*rp + 8010*pow(M,4)*pow(rp,2) + 4*(-1111 + 288*pow(m,2))*pow(M,3)*pow(rp,3) + (1459 - 300*pow(m,2))*pow(M,2)*pow(rp,4) - 2*(15 + 128*pow(m,2))*M*pow(rp,5) + 3*(-17 + 4*pow(m,2))*pow(rp,6)) - 8*pow(a,8)*M*pow(rp,2)*(1896*pow(M,6) - 10368*pow(M,5)*rp + 7962*pow(M,4)*pow(rp,2) + 64*(17 + 18*pow(m,2))*pow(M,3)*pow(rp,3) - (2615 + 84*pow(m,2))*pow(M,2)*pow(rp,4) + 4*(187 - 190*pow(m,2))*M*pow(rp,5) + 39*(-1 + 4*pow(m,2))*pow(rp,6)) - (3*M - rp)*pow(rp,10)*(2784*pow(M,6) + 6*(-1009 + 176*pow(m,2))*pow(M,5)*rp + 18*(171 + 292*pow(m,2))*pow(M,4)*pow(rp,2) + 8*(11 - 740*pow(m,2))*pow(M,3)*pow(rp,3) + 27*(-31 + 140*pow(m,2))*pow(M,2)*pow(rp,4) - 24*(-19 + 73*pow(m,2))*M*pow(rp,5) + 71*(-1 + 4*pow(m,2))*pow(rp,6)) + a*Omega*pow(rp,10)*(-25056*pow(M,7) + 18*(3777 - 176*pow(m,2))*pow(M,6)*rp + 72*(-1208 + 579*pow(m,2))*pow(M,5)*pow(rp,2) + 6*(10357 - 9844*pow(m,2))*pow(M,4)*pow(rp,3) + (-31759 + 59884*pow(m,2))*pow(M,3)*pow(rp,4) - 9*(-883 + 2132*pow(m,2))*pow(M,2)*pow(rp,5) + 3*(173 - 1004*pow(m,2))*M*pow(rp,6) + 355*(-1 + 4*pow(m,2))*pow(rp,7)) + 4*pow(a,6)*pow(rp,3)*(4596*pow(M,8) - 27366*pow(M,7)*rp + 18558*pow(M,6)*pow(rp,2) + 11*(1645 + 712*pow(m,2))*pow(M,5)*pow(rp,3) - (24623 + 7496*pow(m,2))*pow(M,4)*pow(rp,4) + (8605 + 4928*pow(m,2))*pow(M,3)*pow(rp,5) - 36*(-3 + 145*pow(m,2))*pow(M,2)*pow(rp,6) + (-233 + 980*pow(m,2))*M*pow(rp,7) + 6*(1 - 4*pow(m,2))*pow(rp,8)) + 2*pow(a,3)*Omega*pow(rp,7)*(8352*pow(M,8) + 3*(-3811 + 528*pow(m,2))*pow(M,7)*rp - 324*(-93 + 46*pow(m,2))*pow(M,6)*pow(rp,2) + 201*(-287 + 128*pow(m,2))*pow(M,5)*pow(rp,3) - 8*(-7731 + 7535*pow(m,2))*pow(M,4)*pow(rp,4) + 20*(-2200 + 4627*pow(m,2))*pow(M,3)*pow(rp,5) - 61*(-497 + 1700*pow(m,2))*pow(M,2)*pow(rp,6) + 2*(-7587 + 29654*pow(m,2))*M*pow(rp,7) - 2645*(-1 + 4*pow(m,2))*pow(rp,8)) - 4*pow(a,7)*Omega*pow(rp,3)*(4596*pow(M,8) - 22638*pow(M,7)*rp + 24866*pow(M,6)*pow(rp,2) + (-19825 + 7832*pow(m,2))*pow(M,5)*pow(rp,3) + (11039 - 10904*pow(m,2))*pow(M,4)*pow(rp,4) + 5*(-599 + 2320*pow(m,2))*pow(M,3)*pow(rp,5) - 234*(-1 + 26*pow(m,2))*pow(M,2)*pow(rp,6) + (405 - 484*pow(m,2))*M*pow(rp,7) + 30*(-1 + 4*pow(m,2))*pow(rp,8)) - 2*pow(a,2)*pow(rp,7)*(25056*pow(M,8) + 9*(-8417 + 176*pow(m,2))*pow(M,7)*rp + 24*(3920 - 1301*pow(m,2))*pow(M,6)*pow(rp,2) + 15*(-4241 + 4080*pow(m,2))*pow(M,5)*pow(rp,3) + 4*(6637 - 11962*pow(m,2))*pow(M,4)*pow(rp,4) - 12*(47 + 755*pow(m,2))*pow(M,3)*pow(rp,5) + (-9793 + 41044*pow(m,2))*pow(M,2)*pow(rp,6) + 2*(2263 - 9154*pow(m,2))*M*pow(rp,7) + 529*(-1 + 4*pow(m,2))*pow(rp,8)) + pow(a,4)*pow(rp,4)*(-8352*pow(M,9) + 53760*pow(M,8)*rp + 11736*pow(M,7)*pow(rp,2) - 12*(16141 + 292*pow(m,2))*pow(M,6)*pow(rp,3) - 16*(-16285 + 7897*pow(m,2))*pow(M,5)*pow(rp,4) + 12*(-16027 + 26736*pow(m,2))*pow(M,4)*pow(rp,5) + (120443 - 379820*pow(m,2))*pow(M,3)*pow(rp,6) + (-64987 + 249532*pow(m,2))*pow(M,2)*pow(rp,7) + 3*(4843 - 19196*pow(m,2))*M*pow(rp,8) + 65*(-1 + 4*pow(m,2))*pow(rp,9)) + pow(a,5)*Omega*pow(rp,4)*(8352*pow(M,9) - 45120*pow(M,8)*rp + 41640*pow(M,7)*pow(rp,2) + 12*(-2999 + 292*pow(m,2))*pow(M,6)*pow(rp,3) + 80*(-114 + 857*pow(m,2))*pow(M,5)*pow(rp,4) - 252*(-273 + 544*pow(m,2))*pow(M,4)*pow(rp,5) + (-73323 + 157292*pow(m,2))*pow(M,3)*pow(rp,6) + (32957 - 86308*pow(m,2))*pow(M,2)*pow(rp,7) - (1005 + 988*pow(m,2))*M*pow(rp,8) + 325*(-1 + 4*pow(m,2))*pow(rp,9)))*zc*pow(dr,2))/(48.*(-1 + 2*m)*(1 + 2*m)*pow(rp,14)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*pow(pow(a,2) + rp*(-2*M + rp),4))
+		+ (pow(-1 + a*Omega,4)*(-3*M + rp + (2*a*Omega*rp)/(1 - a*Omega))*(720*pow(a,6)*M + (1440*pow(a,5)*Omega*pow(rp,3))/(1 - a*Omega) + (8*pow(a,3)*Omega*pow(rp,3)*(1799*pow(M,2) - 2890*M*rp + 1455*pow(rp,2)))/(-1 + a*Omega) + pow(a,4)*(-7196*pow(M,3) + 11512*pow(M,2)*rp - 5756*M*pow(rp,2) + 720*pow(rp,3)) + pow(rp,3)*(8508*pow(M,4) - 19883*pow(M,3)*rp + 18563*pow(M,2)*pow(rp,2) - 8645*M*pow(rp,3) + 2145*pow(rp,4)) - (2*a*Omega*pow(rp,3)*(8508*pow(M,4) - 19640*pow(M,3)*rp + 18029*pow(M,2)*pow(rp,2) - 8306*M*pow(rp,3) + 2145*pow(rp,4)))/(-1 + a*Omega) + 4*pow(a,2)*(2127*pow(M,5) - 4910*pow(M,4)*rp + 4487*pow(M,3)*pow(rp,2) - 3867*pow(M,2)*pow(rp,3) + 3446*M*pow(rp,4) - 1455*pow(rp,5)))*zc*pow(dr,4))/(96.*pow(rho,2)*pow(rp,4)*pow(pow(a,2) + rp*(-2*M + rp),5))
+		- (pow(-1 + a*Omega,4)*(-3*M + rp + (2*a*Omega*rp)/(1 - a*Omega))*(240*pow(a,6)*M + (480*pow(a,5)*Omega*pow(rp,3))/(1 - a*Omega) + (8*pow(a,3)*Omega*pow(rp,3)*(1093*pow(M,2) - 1946*M*rp + 973*pow(rp,2)))/(-1 + a*Omega) - 4*pow(a,4)*(1093*pow(M,3) - 1946*pow(M,2)*rp + 973*M*pow(rp,2) - 60*pow(rp,3)) + pow(rp,3)*(7152*pow(M,4) - 19909*pow(M,3)*rp + 22117*pow(M,2)*pow(rp,2) - 12155*M*pow(rp,3) + 3035*pow(rp,4)) - (2*a*Omega*pow(rp,3)*(7152*pow(M,4) - 19864*pow(M,3)*rp + 22027*pow(M,2)*pow(rp,2) - 12110*M*pow(rp,3) + 3035*pow(rp,4)))/(-1 + a*Omega) + 4*pow(a,2)*(1788*pow(M,5) - 4966*pow(M,4)*rp + 5503*pow(M,3)*pow(rp,2) - 4113*pow(M,2)*pow(rp,3) + 2701*M*pow(rp,4) - 973*pow(rp,5)))*zc*pow(dr,6))/(48.*pow(rho,4)*pow(rp,2)*pow(pow(a,2) + rp*(-2*M + rp),6))
+		- ((-1 + a*Omega)*pow(rp,3)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*(4*pow(a,4) + 441*pow(M,4) - 1422*pow(M,3)*rp + 1807*pow(M,2)*pow(rp,2) - 1096*M*pow(rp,3) + 274*pow(rp,4) + pow(a,2)*(-171*pow(M,2) + 326*M*rp - 163*pow(rp,2)))*zc*pow(dr,8))/(3.*pow(rho,6)*pow(pow(a,2) + rp*(-2*M + rp),7))
+		+ (2*(-1 + a*Omega)*pow(M - rp,2)*pow(rp,5)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*(-7*pow(a,2) + 38*pow(M,2) - 62*M*rp + 31*pow(rp,2))*zc*pow(dr,10))/(pow(rho,8)*pow(pow(a,2) + rp*(-2*M + rp),8))
+		- (16*(-1 + a*Omega)*pow(M - rp,4)*pow(rp,7)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*zc*pow(dr,12))/(pow(rho,10)*pow(pow(a,2) + rp*(-2*M + rp),9))
+		+ HarmonicNumber(-0.5 - m) * ((pow(-1 + a*Omega,4)*pow(rho,2)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*(32*pow(a,8)*pow(M,2) - 32*pow(a,9)*pow(M,2)*Omega - 16*pow(a,7)*M*Omega*(pow(M,3) - 10*pow(M,2)*rp + 5*M*pow(rp,2) + 7*pow(rp,3)) + 16*pow(a,6)*M*(pow(M,3) - 10*pow(M,2)*rp + 5*M*pow(rp,2) + 17*pow(rp,3)) + pow(rp,6)*(-12*pow(M,4) + 31*pow(M,3)*rp + 270*pow(M,2)*pow(rp,2) - 281*M*pow(rp,3) + 68*pow(rp,4)) + 3*a*Omega*pow(rp,6)*(-12*pow(M,4) + 21*pow(M,3)*rp + 214*pow(M,2)*pow(rp,2) - 247*M*pow(rp,3) + 68*pow(rp,4)) + pow(a,2)*pow(rp,3)*(-72*pow(M,5) + 111*pow(M,4)*rp + 1177*pow(M,3)*pow(rp,2) - 1347*pow(M,2)*pow(rp,3) + 147*M*pow(rp,4) + 116*pow(rp,5)) + pow(a,3)*Omega*pow(rp,3)*(24*pow(M,5) - 47*pow(M,4)*rp - 515*pow(M,3)*pow(rp,2) + 615*pow(M,2)*pow(rp,3) - 829*M*pow(rp,4) + 348*pow(rp,5)) - 4*pow(a,4)*(3*pow(M,6) - 4*pow(M,5)*rp - 34*pow(M,4)*pow(rp,2) + 18*pow(M,3)*pow(rp,3) + 304*pow(M,2)*pow(rp,4) - 165*M*pow(rp,5) - 12*pow(rp,6)) + 4*pow(a,5)*Omega*(3*pow(M,6) - 4*pow(M,5)*rp - 34*pow(M,4)*pow(rp,2) + 34*pow(M,3)*pow(rp,3) + 116*pow(M,2)*pow(rp,4) - 67*M*pow(rp,5) + 36*pow(rp,6)))*zc)/(64.*pow(rp,11)*pow(pow(a,2) + rp*(-2*M + rp),3)) + (pow(-1 + a*Omega,2)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*(32*pow(a,6)*M - 32*pow(a,7)*M*Omega - 8*pow(a,4)*(55*pow(M,3) - 94*pow(M,2)*rp + 53*M*pow(rp,2) - 4*pow(rp,3)) + 8*pow(a,5)*Omega*(55*pow(M,3) - 94*pow(M,2)*rp + 53*M*pow(rp,2) + 4*pow(rp,3)) + pow(rp,3)*(456*pow(M,4) - 1091*pow(M,3)*rp + 799*pow(M,2)*pow(rp,2) - 313*M*pow(rp,3) + 77*pow(rp,4)) + a*Omega*pow(rp,3)*(456*pow(M,4) - 797*pow(M,3)*rp + 499*pow(M,2)*pow(rp,2) - 43*M*pow(rp,3) + 77*pow(rp,4)) + 4*pow(a,2)*(114*pow(M,5) - 236*pow(M,4)*rp + 166*pow(M,3)*pow(rp,2) - 164*pow(M,2)*pow(rp,3) + 269*M*pow(rp,4) - 119*pow(rp,5)) - 4*pow(a,3)*Omega*(114*pow(M,5) - 236*pow(M,4)*rp + 166*pow(M,3)*pow(rp,2) + 56*pow(M,2)*pow(rp,3) - 143*M*pow(rp,4) + 119*pow(rp,5)))*zc*pow(dr,2))/(32.*pow(rp,6)*pow(pow(a,2) + rp*(-2*M + rp),4)))
+		+ log(pow(rho,2)/pow(zc,2)) * ((pow(-1 + a*Omega,4)*pow(rho,2)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*(32*pow(a,8)*pow(M,2) - 32*pow(a,9)*pow(M,2)*Omega - 16*pow(a,7)*M*Omega*(pow(M,3) - 10*pow(M,2)*rp + 5*M*pow(rp,2) + 7*pow(rp,3)) + 16*pow(a,6)*M*(pow(M,3) - 10*pow(M,2)*rp + 5*M*pow(rp,2) + 17*pow(rp,3)) + pow(rp,6)*(-12*pow(M,4) + 31*pow(M,3)*rp + 270*pow(M,2)*pow(rp,2) - 281*M*pow(rp,3) + 68*pow(rp,4)) + 3*a*Omega*pow(rp,6)*(-12*pow(M,4) + 21*pow(M,3)*rp + 214*pow(M,2)*pow(rp,2) - 247*M*pow(rp,3) + 68*pow(rp,4)) + pow(a,2)*pow(rp,3)*(-72*pow(M,5) + 111*pow(M,4)*rp + 1177*pow(M,3)*pow(rp,2) - 1347*pow(M,2)*pow(rp,3) + 147*M*pow(rp,4) + 116*pow(rp,5)) + pow(a,3)*Omega*pow(rp,3)*(24*pow(M,5) - 47*pow(M,4)*rp - 515*pow(M,3)*pow(rp,2) + 615*pow(M,2)*pow(rp,3) - 829*M*pow(rp,4) + 348*pow(rp,5)) - 4*pow(a,4)*(3*pow(M,6) - 4*pow(M,5)*rp - 34*pow(M,4)*pow(rp,2) + 18*pow(M,3)*pow(rp,3) + 304*pow(M,2)*pow(rp,4) - 165*M*pow(rp,5) - 12*pow(rp,6)) + 4*pow(a,5)*Omega*(3*pow(M,6) - 4*pow(M,5)*rp - 34*pow(M,4)*pow(rp,2) + 34*pow(M,3)*pow(rp,3) + 116*pow(M,2)*pow(rp,4) - 67*M*pow(rp,5) + 36*pow(rp,6)))*zc)/(128.*pow(rp,11)*pow(pow(a,2) + rp*(-2*M + rp),3)) + (pow(-1 + a*Omega,2)*(3*M*(-1 + a*Omega) + rp + a*Omega*rp)*(32*pow(a,6)*M - 32*pow(a,7)*M*Omega - 8*pow(a,4)*(55*pow(M,3) - 94*pow(M,2)*rp + 53*M*pow(rp,2) - 4*pow(rp,3)) + 8*pow(a,5)*Omega*(55*pow(M,3) - 94*pow(M,2)*rp + 53*M*pow(rp,2) + 4*pow(rp,3)) + pow(rp,3)*(456*pow(M,4) - 1091*pow(M,3)*rp + 799*pow(M,2)*pow(rp,2) - 313*M*pow(rp,3) + 77*pow(rp,4)) + a*Omega*pow(rp,3)*(456*pow(M,4) - 797*pow(M,3)*rp + 499*pow(M,2)*pow(rp,2) - 43*M*pow(rp,3) + 77*pow(rp,4)) + 4*pow(a,2)*(114*pow(M,5) - 236*pow(M,4)*rp + 166*pow(M,3)*pow(rp,2) - 164*pow(M,2)*pow(rp,3) + 269*M*pow(rp,4) - 119*pow(rp,5)) - 4*pow(a,3)*Omega*(114*pow(M,5) - 236*pow(M,4)*rp + 166*pow(M,3)*pow(rp,2) + 56*pow(M,2)*pow(rp,3) - 143*M*pow(rp,4) + 119*pow(rp,5)))*zc*pow(dr,2))/(64.*pow(rp,6)*pow(pow(a,2) + rp*(-2*M + rp),4)));
+
+  const double cosmph = cos(m*xp.phi);
+  const double sinmph = sin(m*xp.phi);
+
+	src[0] = (srcO0 + srcO1 + srcO2)*cosmph;
+  src[1] = (srcO0 + srcO1 + srcO2)*sinmph;
+
+	return;
 }
 
 /* Initialize array of coefficients of pows of dr, dtheta and dphi. */

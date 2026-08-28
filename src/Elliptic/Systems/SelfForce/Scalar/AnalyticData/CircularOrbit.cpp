@@ -34,6 +34,19 @@ std::pair<DataVector, DataVector> boost_function_and_deriv(
           smoothstep_deriv<1>(transition_points[2], transition_points[3],
                               r_star)};
 }
+
+// C2 smooth ramp from 0 (at or below x0) to 1 (at or above x1). Used to blend
+// the resummed and m-series effective sources near the particle.
+double smooth_ramp(const double x, const double x0, const double x1) {
+  if (x <= x0) {
+    return 0.0;
+  }
+  if (x >= x1) {
+    return 1.0;
+  }
+  const double t = (x - x0) / (x1 - x0);
+  return t * t * t * (t * (6.0 * t - 15.0) + 10.0);
+}
 }  // namespace
 
 CircularOrbit::CircularOrbit(const double black_hole_mass,
@@ -306,6 +319,21 @@ CircularOrbit::variables(
     std::array<double, 8> dPhiS_dx{};
     std::array<double, 20> d2PhiS_dx2{};
     std::array<double, 2> src{};
+    // Blend region for the local (m-series) expansion: full series weight for
+    // |dr| <= dr_full and |dth| <= dth_full, ramping smoothly (C2) to pure
+    // resummed effsource_calc_m by dr_zero / dth_zero. dth is the polar-angle
+    // offset from the equator in radians. Tune these and recompile.
+
+    // ==== below works better for highe m (m> 10) (w.r.t Tommy's SF_r^m)
+    const double dr_full = 0.03;
+    const double dr_zero = 0.10;
+    const double dth_full = 0.01;
+    const double dth_zero = 0.03;
+    // ==== try for smaller m 
+    // const double dr_full = 0.01;
+    // const double dr_zero = 0.04;
+    // const double dth_full = 0.007;
+    // const double dth_zero = 0.02;
     for (size_t i = 0; i < num_points; ++i) {
       x_i.t = 0;
       x_i.r = r[i];
@@ -313,6 +341,20 @@ CircularOrbit::variables(
       x_i.phi = 0;
       effsource_calc_m(m_mode_number_, &x_i, PhiS.data(), dPhiS_dx.data(),
                        d2PhiS_dx2.data(), src.data());
+      // =======================================================================
+      // Near the particle, blend in the m-series expansion. PhiS / dPhiS_dx are
+      // always kept from effsource_calc_m above.
+      const double dr = fabs(x_i.r - orbital_radius_);
+      const double dth = fabs(x_i.theta - M_PI_2);
+      if (dr < dr_zero and dth < dth_zero) {
+        const double w = (1.0 - smooth_ramp(dr, dr_full, dr_zero)) *
+                         (1.0 - smooth_ramp(dth, dth_full, dth_zero));
+        std::array<double, 2> src_series{};
+        effsource_calc_m_series(m_mode_number_, &x_i, src_series.data());
+        src[0] = w * src_series[0] + (1.0 - w) * src[0];
+        src[1] = w * src_series[1] + (1.0 - w) * src[1];
+      }
+      // =======================================================================
       get(effective_source)[i] = src[0] + std::complex<double>(0., 1.) * src[1];
       get(singular_field)[i] = PhiS[0] + std::complex<double>(0., 1.) * PhiS[1];
       get<0>(deriv_singular_field)[i] =
