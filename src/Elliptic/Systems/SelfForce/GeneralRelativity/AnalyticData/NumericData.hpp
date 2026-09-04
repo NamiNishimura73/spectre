@@ -25,6 +25,8 @@
 
 namespace GrSelfForce::AnalyticData {
 
+// it holds intrp::UniformMultiLinearSpanInterpolation<2, 20>
+// 2D tables, 20 real channels (= 10 complex tensor comp), uniform grid
 struct Interpolator {
   std::vector<double> r;
   std::vector<double> theta;
@@ -42,6 +44,8 @@ struct Interpolator {
                      Index<2>{r.size(), theta.size()}) {}
 };
 
+// holds UniformMultiLinearSpanInterpolation<1, 40> — 1D, 40 channels 
+// (20 for hS + 20 for its normal derivative).
 struct Interpolator1D {
   std::vector<double> coord;   // r for Top/Bottom, theta for Left/Right
   std::vector<double> flat_data;

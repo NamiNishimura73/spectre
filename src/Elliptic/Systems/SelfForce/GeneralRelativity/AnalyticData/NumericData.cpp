@@ -36,7 +36,8 @@
 namespace GrSelfForce::AnalyticData {
 
 namespace {
-
+// Builds uniform coordinates aces r[i] = rMin + 1*dr, theta[j] = thetaMin + j*dtheta
+// then it flattens the (npoints, 20) matrix into flat_data[i*20 + k]
 Interpolator load_data_from_file(const std::string& filename,
                                  const std::string& subfile_name) {
   // Open file
@@ -283,6 +284,9 @@ NumericData::variables(
   const auto& interpolator = [&]() {
     if (field_is_regularized) {
       return interpolators_[3].interpolator;
+      // Inside the worldtube (field_is_regularized = True), 
+      // we only compute Seff (Seff = 2*D2G[h1,h1] - E[h2]), 
+      // so it already contains the RetRet pieces 
     }
     const double any_r = r[0];
     if (any_r < hyperboloidal_slicing_transitions[0]) {

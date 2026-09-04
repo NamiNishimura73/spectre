@@ -57,6 +57,8 @@ struct MockContributeReductionData {
     double energy_flux{};
     double energy_flux_fit{};
     double surface_area{};
+    double energy_flux_second_radius{};
+    double surface_area_second_radius{};
   };
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static Results results;
@@ -90,6 +92,8 @@ struct MockContributeReductionData {
     results.energy_flux = std::get<2>(reduction_data.data());
     results.energy_flux_fit = std::get<3>(reduction_data.data());
     results.surface_area = std::get<4>(reduction_data.data());
+    results.energy_flux_second_radius = std::get<5>(reduction_data.data());
+    results.surface_area_second_radius = std::get<6>(reduction_data.data());
   }
 };
 
@@ -227,10 +231,15 @@ SPECTRE_TEST_CASE("Unit.GrSelfForce.Events.ObserveFlux", "[Unit][Elliptic]") {
   CHECK(results.subfile_name == "Flux.dat");
   CHECK(results.legend ==
         std::vector<std::string>{"ObservationValue", "NumberOfPoints",
-                                 "EnergyFlux", "EnergyFluxFit", "SurfaceArea"});
+                                 "EnergyFlux", "EnergyFluxFit", "SurfaceArea",
+                                 "EnergyFluxSecondRadius",
+                                 "SurfaceAreaSecondRadius"});
   CHECK(results.iteration_id == 1.0);
   CHECK(results.num_grid_points == 2 * mesh.number_of_grid_points());
   CHECK(results.energy_flux == approx(0.0));
+  // SecondExtractionRadius defaults to None, so these stay zero.
+  CHECK(results.energy_flux_second_radius == approx(0.0));
+  CHECK(results.surface_area_second_radius == approx(0.0));
   // Outer boundary contributes integral of sin(theta) * (pi/2) from -1 to 1
   // in logical coords = integral of sin(theta) dtheta from 0 to pi = 2.0.
   CHECK(results.surface_area == approx(2.0).epsilon(1e-5));

@@ -33,6 +33,7 @@
 #include "IO/Observer/ReductionActions.hpp"
 #include "IO/Observer/TypeOfObservation.hpp"
 #include "NumericalAlgorithms/Spectral/Mesh.hpp"
+#include "Options/Auto.hpp"
 #include "Options/String.hpp"
 #include "Parallel/ArrayIndex.hpp"
 #include "Parallel/GlobalCache.hpp"
@@ -42,12 +43,14 @@
 #include "Parallel/TypeTraits.hpp"
 #include "ParallelAlgorithms/Events/Tags.hpp"
 #include "ParallelAlgorithms/EventsAndTriggers/Event.hpp"
+#include "Utilities/EqualWithinRoundoff.hpp"
 #include "Utilities/ErrorHandling/Assert.hpp"
 #include "Utilities/ErrorHandling/Error.hpp"
 #include "Utilities/Functional.hpp"
 #include "Utilities/OptionalHelpers.hpp"
 #include "Utilities/PrettyType.hpp"
 #include "Utilities/Serialization/CharmPupable.hpp"
+#include "Utilities/Serialization/PupStlCpp17.hpp"
 #include "Utilities/TMPL.hpp"
 
 namespace GrSelfForce::Events {
@@ -84,18 +87,33 @@ class ObserveFlux : public Event {
       // EnergyFluxFit
       Parallel::ReductionDatum<double, funcl::Plus<>>,
       // Surface area (should be 2)
+      Parallel::ReductionDatum<double, funcl::Plus<>>,
+      // Energy flux at the second (interior) extraction radius
+      Parallel::ReductionDatum<double, funcl::Plus<>>,
+      // Surface area at the second extraction radius (should be 2 if enabled)
       Parallel::ReductionDatum<double, funcl::Plus<>>>;
 
   explicit ObserveFlux(CkMigrateMessage* msg) : Event(msg) {}
   using PUP::able::register_constructor;
   WRAPPED_PUPable_decl_template(ObserveFlux);  // NOLINT
 
-  using options = tmpl::list<>;
+  struct SecondExtractionRadius {
+    using type = Options::Auto<double, Options::AutoLabel::None>;
+    static constexpr Options::String help =
+        "If set, also extract the energy flux at this interior radius, which "
+        "must coincide with a block boundary (e.g. 2000 to measure the "
+        "flux-extraction-radius truncation against the outer-boundary flux). "
+        "Populates the EnergyFluxSecondRadius / SurfaceAreaSecondRadius "
+        "columns; leave as None to disable (those columns are then zero).";
+  };
+  using options = tmpl::list<SecondExtractionRadius>;
 
   static constexpr Options::String help =
       "Observe the energy flux at the outer boundary.";
 
   ObserveFlux() = default;
+  explicit ObserveFlux(const std::optional<double> second_extraction_radius)
+      : second_extraction_radius_(second_extraction_radius) {}
 
   using observed_reduction_data_tags =
       observers::make_reduction_data_tags<tmpl::list<ReductionData>>;
@@ -121,20 +139,37 @@ class ObserveFlux : public Event {
     const auto& direction = Direction<2>::upper_xi();
     const auto& element = get<domain::Tags::Element<2>>(box);
     const auto& mesh = get<domain::Tags::Mesh<2>>(box);
-    double energy_flux = 0.;
-    double energy_flux_fit = 0.;
-    double surface_area = 0.;
-    if (element.external_boundaries().contains(direction)) {
+
+    // Resolve the CircularOrbit parameters from the background. Only needed on
+    // the (few) elements that actually extract a flux, so it is wrapped in a
+    // lambda rather than evaluated for every element.
+    const auto resolve_circular_orbit =
+        [&box]() -> const AnalyticData::CircularOrbit& {
       const auto& background = get<BackgroundTag>(box);
       const auto* co_ptr =
           dynamic_cast<const AnalyticData::CircularOrbit*>(&background);
       const auto* nd_ptr =
-          co_ptr ? nullptr
-                 : dynamic_cast<const AnalyticData::NumericData*>(&background);
+          co_ptr != nullptr
+              ? nullptr
+              : dynamic_cast<const AnalyticData::NumericData*>(&background);
       ASSERT(co_ptr != nullptr or nd_ptr != nullptr,
              "Background must be CircularOrbit or NumericData");
+      return co_ptr != nullptr ? *co_ptr : nd_ptr->circular_orbit();
+    };
+
+    const auto& det_surface_jacobian_on_faces = get<domain::Tags::Faces<
+        2, domain::Tags::DetSurfaceJacobian<Frame::ElementLogical,
+                                            Frame::Inertial>>>(box);
+    const auto& coords_on_faces = get<
+        domain::Tags::Faces<2, domain::Tags::Coordinates<2, Frame::Inertial>>>(
+        box);
+
+    double energy_flux = 0.;
+    double energy_flux_fit = 0.;
+    double surface_area = 0.;
+    if (element.external_boundaries().contains(direction)) {
       const AnalyticData::CircularOrbit& circular_orbit =
-          co_ptr ? *co_ptr : nd_ptr->circular_orbit();
+          resolve_circular_orbit();
       // skip first 4 AMR iterations
       const bool compute_fit = (observation_value.value >= 4.0);
       if (compute_fit) {
@@ -143,24 +178,35 @@ class ObserveFlux : public Event {
                 circular_orbit, get<Tags::MMode>(box),
                 get<::Tags::deriv<Tags::MMode, tmpl::size_t<2>,
                                   Frame::Inertial>>(box),
-                mesh,
-                get<domain::Tags::Faces<
-                    2, domain::Tags::DetSurfaceJacobian<Frame::ElementLogical,
-                                                        Frame::Inertial>>>(box)
-                    .at(direction),
-                get<domain::Tags::Faces<
-                    2, domain::Tags::Coordinates<2, Frame::Inertial>>>(box)
-                    .at(direction));
+                mesh, det_surface_jacobian_on_faces.at(direction),
+                coords_on_faces.at(direction));
       } else {
         std::tie(energy_flux, surface_area) = detail::extract_flux(
             circular_orbit, get<Tags::MMode>(box), mesh,
-            get<domain::Tags::Faces<
-                2, domain::Tags::DetSurfaceJacobian<Frame::ElementLogical,
-                                                    Frame::Inertial>>>(box)
-                .at(direction),
-            get<domain::Tags::Faces<
-                2, domain::Tags::Coordinates<2, Frame::Inertial>>>(box)
-                .at(direction));
+            det_surface_jacobian_on_faces.at(direction),
+            coords_on_faces.at(direction));
+      }
+    }
+
+    // Optionally also extract the flux at an interior radius that coincides
+    // with a block boundary (e.g. the outer radius of a lower-resolution
+    // second-order run). Fires on the elements whose upper-xi face sits at
+    // that radius; every other element contributes zero to the Plus<>
+    // reduction. The Richardson "fit" is only meaningful at the outer
+    // boundary, so it is not computed here.
+    double energy_flux_second_radius = 0.;
+    double surface_area_second_radius = 0.;
+    if (second_extraction_radius_.has_value() and
+        not element.external_boundaries().contains(direction)) {
+      const auto face_coords_it = coords_on_faces.find(direction);
+      if (face_coords_it != coords_on_faces.end() and
+          equal_within_roundoff(get<0>(face_coords_it->second)[0],
+                                second_extraction_radius_.value())) {
+        std::tie(energy_flux_second_radius, surface_area_second_radius) =
+            detail::extract_flux(resolve_circular_orbit(), get<Tags::MMode>(box),
+                                 mesh,
+                                 det_surface_jacobian_on_faces.at(direction),
+                                 face_coords_it->second);
       }
     }
     // Send data to reduction observer
@@ -176,11 +222,17 @@ class ObserveFlux : public Event {
         std::add_pointer_t<ParallelComponent>{nullptr},
         Parallel::ArrayIndex<ElementId<2>>(element_id)};
     ReductionData reduction_data{observation_value.value,
-                                 mesh.number_of_grid_points(), energy_flux,
-                                 energy_flux_fit, surface_area};
-    std::vector<std::string> legend{"ObservationValue", "NumberOfPoints",
-                                    "EnergyFlux", "EnergyFluxFit",
-                                    "SurfaceArea"};
+                                 mesh.number_of_grid_points(),
+                                 energy_flux,
+                                 energy_flux_fit,
+                                 surface_area,
+                                 energy_flux_second_radius,
+                                 surface_area_second_radius};
+    std::vector<std::string> legend{
+        "ObservationValue",        "NumberOfPoints",
+        "EnergyFlux",              "EnergyFluxFit",
+        "SurfaceArea",             "EnergyFluxSecondRadius",
+        "SurfaceAreaSecondRadius"};
     if constexpr (Parallel::is_nodegroup_v<ParallelComponent>) {
       Parallel::threaded_action<
           observers::ThreadedActions::CollectReductionDataOnNode>(
@@ -222,6 +274,14 @@ class ObserveFlux : public Event {
   }
 
   bool needs_evolved_variables() const override { return false; }
+
+  void pup(PUP::er& p) override {
+    Event::pup(p);
+    p | second_extraction_radius_;
+  }
+
+ private:
+  std::optional<double> second_extraction_radius_{};
 };
 
 /// \cond
