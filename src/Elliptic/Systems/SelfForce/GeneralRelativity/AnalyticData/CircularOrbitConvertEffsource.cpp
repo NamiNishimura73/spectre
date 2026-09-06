@@ -566,8 +566,8 @@ real_conv[6] = factor*((real_orig[6]-(real_orig[9]*a)/(a*a-2*r+r*r)+(real_orig[3
 imag_conv[6] = factor*((imag_orig[6]-(imag_orig[9]*a)/(a*a-2*r+r*r)+(imag_orig[3]*(-a*a-r*r))/(a*a-2*r+r*r))*cosmdphi-(real_orig[6]-(real_orig[9]*a)/(a*a-2*r+r*r)+(real_orig[3]*(-a*a-r*r))/(a*a-2*r+r*r))*sinmdphi)/(sinth*sinth);
 real_conv[7] = factor*(real_orig[7]*cosmdphi+imag_orig[7]*sinmdphi)/(r);
 imag_conv[7] = factor*(imag_orig[7]*cosmdphi-real_orig[7]*sinmdphi)/(r);
-real_conv[8] = factor*(real_orig[8]*cosmdphi+imag_orig[8]*sinmdphi)/(-sinth*r);
-imag_conv[8] = factor*(imag_orig[8]*cosmdphi-real_orig[8]*sinmdphi)/(-sinth*r);
+real_conv[8] = factor*(real_orig[8]*cosmdphi+imag_orig[8]*sinmdphi)/(-sinth*r*sinth*sinth);
+imag_conv[8] = factor*(imag_orig[8]*cosmdphi-real_orig[8]*sinmdphi)/(-sinth*r*sinth*sinth);
 real_conv[9] = factor*(real_orig[9]*cosmdphi+imag_orig[9]*sinmdphi)/(r*sinth*sinth);
 imag_conv[9] = factor*(imag_orig[9]*cosmdphi-real_orig[9]*sinmdphi)/(r*sinth*sinth);
 } else if (m==1) {
@@ -643,8 +643,8 @@ real_conv[6] = factor*((real_orig[6]-(real_orig[9]*a)/(a*a-2*r+r*r)+(real_orig[3
 imag_conv[6] = factor*((imag_orig[6]-(imag_orig[9]*a)/(a*a-2*r+r*r)+(imag_orig[3]*(-a*a-r*r))/(a*a-2*r+r*r))*cosmdphi-(real_orig[6]-(real_orig[9]*a)/(a*a-2*r+r*r)+(real_orig[3]*(-a*a-r*r))/(a*a-2*r+r*r))*sinmdphi)*(r*r + a*a*z*z)/((a*a + r*r)*sinth*sinth);
 real_conv[7] = factor*(real_orig[7]*cosmdphi+imag_orig[7]*sinmdphi)*((r*r + a*a*z*z))/(r*(a*a + r*r));
 imag_conv[7] = factor*(imag_orig[7]*cosmdphi-real_orig[7]*sinmdphi)*((r*r + a*a*z*z))/(r*(a*a + r*r));
-real_conv[8] = factor*(real_orig[8]*cosmdphi+imag_orig[8]*sinmdphi)*(r*r + a*a*z*z)/(r*(a*a + r*r)*sinth*-1);
-imag_conv[8] = factor*(imag_orig[8]*cosmdphi-real_orig[8]*sinmdphi)*(r*r + a*a*z*z)/(r*(a*a + r*r)*sinth*-1);
+real_conv[8] = factor*(real_orig[8]*cosmdphi+imag_orig[8]*sinmdphi)*(r*r + a*a*z*z)/(r*(a*a + r*r)*sinth*-1*sinth*sinth);
+imag_conv[8] = factor*(imag_orig[8]*cosmdphi-real_orig[8]*sinmdphi)*(r*r + a*a*z*z)/(r*(a*a + r*r)*sinth*-1*sinth*sinth);
 real_conv[9] = factor*(real_orig[9]*cosmdphi+imag_orig[9]*sinmdphi)*(r*r + a*a*z*z)/(r*(a*a + r*r)*sinth*sinth);
 imag_conv[9] = factor*(imag_orig[9]*cosmdphi-real_orig[9]*sinmdphi)*(r*r + a*a*z*z)/(r*(a*a + r*r)*sinth*sinth);
 } else if (m==1) {
@@ -721,8 +721,8 @@ real_conv_dz[6] = factor*((real_orig[6]-(real_orig[9]*a)/(a*a-2*r+r*r)+(real_ori
 imag_conv_dz[6] = factor*((imag_orig[6]-(imag_orig[9]*a)/(a*a-2*r+r*r)+(imag_orig[3]*(-a*a-r*r))/(a*a-2*r+r*r))*cosmdphi-(real_orig[6]-(real_orig[9]*a)/(a*a-2*r+r*r)+(real_orig[3]*(-a*a-r*r))/(a*a-2*r+r*r))*sinmdphi)*(2*z)/(sinth*sinth*sinth*sinth) + factor*((imag_orig_dth[6]-(imag_orig_dth[9]*a)/(a*a-2*r+r*r)+(imag_orig_dth[3]*(-a*a-r*r))/(a*a-2*r+r*r))*cosmdphi-(real_orig_dth[6]-(real_orig_dth[9]*a)/(a*a-2*r+r*r)+(real_orig_dth[3]*(-a*a-r*r))/(a*a-2*r+r*r))*sinmdphi)/(sinth*sinth*sinth*-1);
 real_conv_dz[7] = factor*(real_orig_dth[7]*cosmdphi+imag_orig_dth[7]*sinmdphi)/(r*sinth*-1);
 imag_conv_dz[7] = factor*(imag_orig_dth[7]*cosmdphi-real_orig_dth[7]*sinmdphi)/(r*sinth*-1);
-real_conv_dz[8] = factor*(real_orig[8]*cosmdphi+imag_orig[8]*sinmdphi)*(z/(r*sinth*sinth*sinth*-1)) + factor*(real_orig_dth[8]*cosmdphi+imag_orig_dth[8]*sinmdphi)/(sinth*sinth*r);
-imag_conv_dz[8] = factor*(imag_orig[8]*cosmdphi-real_orig[8]*sinmdphi)*(z/(r*sinth*sinth*sinth*-1)) + factor*(imag_orig_dth[8]*cosmdphi-real_orig_dth[8]*sinmdphi)/(sinth*sinth*r);
+real_conv_dz[8] = factor*(real_orig[8]*cosmdphi+imag_orig[8]*sinmdphi)*(-4*z)/(r*sinth*sinth*sinth*sinth*sinth*sinth) + factor*(real_orig_dth[8]*cosmdphi+imag_orig_dth[8]*sinmdphi)/(sinth*r*sinth*sinth*sinth);
+imag_conv_dz[8] = factor*(imag_orig[8]*cosmdphi-real_orig[8]*sinmdphi)*(-4*z)/(r*sinth*sinth*sinth*sinth*sinth*sinth) + factor*(imag_orig_dth[8]*cosmdphi-real_orig_dth[8]*sinmdphi)/(sinth*r*sinth*sinth*sinth);
 real_conv_dz[9] = factor*(real_orig[9]*cosmdphi+imag_orig[9]*sinmdphi)*(2*z)/(r*sinth*sinth*sinth*sinth) + factor*(real_orig_dth[9]*cosmdphi+imag_orig_dth[9]*sinmdphi)/(r*sinth*sinth*sinth*-1);
 imag_conv_dz[9] = factor*(imag_orig[9]*cosmdphi-real_orig[9]*sinmdphi)*(2*z)/(r*sinth*sinth*sinth*sinth) + factor*(imag_orig_dth[9]*cosmdphi-real_orig_dth[9]*sinmdphi)/(r*sinth*sinth*sinth*-1);
 } else if (m==1) {
@@ -799,8 +799,8 @@ real_conv_dr[6]=-((factor*(mdphi_dr*cosmdphi*(a*a+(-2+r)*r)*(imag_orig[9]*a-imag
 imag_conv_dr[6]=(factor*(mdphi_dr*cosmdphi*(a*a+(-2+r)*r)*(real_orig[9]*a-real_orig[6]*(a*a+(-2+r)*r)+real_orig[3]*(a*a+r*r))-cosmdphi*(-2*imag_orig[9]*a*(-1+r)+imag_orig_dr[9]*a*(a*a+(-2+r)*r)+2*imag_orig[3]*r*(a*a+(-2+r)*r)-imag_orig_dr[6]*pow(a*a+(-2+r)*r,2)-2*imag_orig[3]*(-1+r)*(a*a+r*r)+imag_orig_dr[3]*(a*a+(-2+r)*r)*(a*a+r*r))+mdphi_dr*(a*a+(-2+r)*r)*(imag_orig[9]*a-imag_orig[6]*(a*a+(-2+r)*r)+imag_orig[3]*(a*a+r*r))*sinmdphi+(-2*real_orig[9]*a*(-1+r)+real_orig_dr[9]*a*(a*a+(-2+r)*r)+2*real_orig[3]*r*(a*a+(-2+r)*r)-real_orig_dr[6]*pow(a*a+(-2+r)*r,2)-2*real_orig[3]*(-1+r)*(a*a+r*r)+real_orig_dr[3]*(a*a+(-2+r)*r)*(a*a+r*r))*sinmdphi))/(pow(a*a+(-2+r)*r,2)*sinth*sinth);
 real_conv_dr[7]=(factor*(cosmdphi*(-real_orig[7]+real_orig_dr[7]*r)+(-imag_orig[7]+imag_orig_dr[7]*r)*sinmdphi+mdphi_dr*r*(imag_orig[7]*cosmdphi-real_orig[7]*sinmdphi)))/(r*r);
 imag_conv_dr[7]=-((factor*(cosmdphi*(imag_orig[7]-imag_orig_dr[7]*r)+(-real_orig[7]+real_orig_dr[7]*r)*sinmdphi+mdphi_dr*r*(real_orig[7]*cosmdphi+imag_orig[7]*sinmdphi)))/(r*r));
-real_conv_dr[8]=(factor*(cosmdphi*(real_orig[8]-real_orig_dr[8]*r)+(imag_orig[8]-imag_orig_dr[8]*r)*sinmdphi+mdphi_dr*(-(imag_orig[8]*cosmdphi*r)+real_orig[8]*r*sinmdphi)))/(r*r*sinth);
-imag_conv_dr[8]=(factor*(cosmdphi*(imag_orig[8]-imag_orig_dr[8]*r)+(-real_orig[8]+real_orig_dr[8]*r)*sinmdphi+mdphi_dr*r*(real_orig[8]*cosmdphi+imag_orig[8]*sinmdphi)))/(r*r*sinth);
+real_conv_dr[8]=(factor*(cosmdphi*(real_orig[8]-real_orig_dr[8]*r)+(imag_orig[8]-imag_orig_dr[8]*r)*sinmdphi+mdphi_dr*(-(imag_orig[8]*cosmdphi*r)+real_orig[8]*r*sinmdphi)))/(r*r*sinth*sinth*sinth);
+imag_conv_dr[8]=(factor*(cosmdphi*(imag_orig[8]-imag_orig_dr[8]*r)+(-real_orig[8]+real_orig_dr[8]*r)*sinmdphi+mdphi_dr*r*(real_orig[8]*cosmdphi+imag_orig[8]*sinmdphi)))/(r*r*sinth*sinth*sinth);
 real_conv_dr[9]=(factor*(cosmdphi*(-real_orig[9]+real_orig_dr[9]*r)+(-imag_orig[9]+imag_orig_dr[9]*r)*sinmdphi+mdphi_dr*r*(imag_orig[9]*cosmdphi-real_orig[9]*sinmdphi)))/(r*r*sinth*sinth);
 imag_conv_dr[9]=-((factor*(cosmdphi*(imag_orig[9]-imag_orig_dr[9]*r)+(-real_orig[9]+real_orig_dr[9]*r)*sinmdphi+mdphi_dr*r*(real_orig[9]*cosmdphi+imag_orig[9]*sinmdphi)))/(r*r*sinth*sinth));
 } else if (m==1) {
