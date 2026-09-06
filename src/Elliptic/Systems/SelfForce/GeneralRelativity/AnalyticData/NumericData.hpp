@@ -14,6 +14,7 @@
 #include "DataStructures/Tensor/Tensor.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/AnalyticData/CircularOrbit.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Tags.hpp"
+#include "NumericalAlgorithms/Interpolation/MultiCubicSpanInterpolation.hpp"
 #include "NumericalAlgorithms/Interpolation/MultiLinearSpanInterpolation.hpp"
 #include "NumericalAlgorithms/LinearOperators/PartialDerivatives.hpp"
 #include "NumericalAlgorithms/Spectral/Mesh.hpp"
@@ -44,7 +45,29 @@ struct Interpolator {
                      Index<2>{r.size(), theta.size()}) {}
 };
 
-// holds UniformMultiLinearSpanInterpolation<1, 40> — 1D, 40 channels 
+// Same data layout as Interpolator, but interpolated with
+// intrp::UniformMultiCubicSpanInterpolation<20> (bicubic, 4-point-per-dimension
+// Lagrange stencil). Used only for the far-field RetRetV/T/U source data,
+// which is expected to be smooth; Seff and Puncture keep the bilinear
+// Interpolator above since Seff is only C1 at the particle.
+struct CubicInterpolator {
+  std::vector<double> r;
+  std::vector<double> theta;
+  std::vector<double> flat_data;
+  intrp::UniformMultiCubicSpanInterpolation<20> interpolator;
+
+  CubicInterpolator() = default;
+  CubicInterpolator(std::vector<double>&& r_in, std::vector<double>&& theta_in,
+                    std::vector<double>&& flat_data_in)
+      : r(std::move(r_in)),
+        theta(std::move(theta_in)),
+        flat_data(std::move(flat_data_in)),
+        interpolator({gsl::make_span(r), gsl::make_span(theta)},
+                     gsl::make_span(flat_data),
+                     Index<2>{r.size(), theta.size()}) {}
+};
+
+// holds UniformMultiLinearSpanInterpolation<1, 40> — 1D, 40 channels
 // (20 for hS + 20 for its normal derivative).
 struct Interpolator1D {
   std::vector<double> coord;   // r for Top/Bottom, theta for Left/Right
@@ -185,7 +208,10 @@ class NumericData : public elliptic::analytic_data::Background,
   friend bool operator==(const NumericData& lhs, const NumericData& rhs);
 
   std::string filename_;
-  std::array<Interpolator, 5> interpolators_;
+  // RetRetV, RetRetT, RetRetU (bicubic)
+  std::array<CubicInterpolator, 3> retret_interpolators_;
+  // Seff, Puncture (bilinear)
+  std::array<Interpolator, 2> seff_puncture_interpolators_;
   std::array<Interpolator1D, 4> boundary_interpolators_;
   CircularOrbit circular_orbit_;
   bool pi_2_rotation_{false};

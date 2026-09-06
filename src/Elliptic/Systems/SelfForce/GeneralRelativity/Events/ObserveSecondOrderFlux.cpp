@@ -18,6 +18,7 @@
 #include "NumericalAlgorithms/DiscontinuousGalerkin/ProjectToBoundary.hpp"
 #include "NumericalAlgorithms/LinearOperators/DefiniteIntegral.hpp"
 #include "NumericalAlgorithms/Spectral/Mesh.hpp"
+#include "Parallel/Printf/Printf.hpp"
 #include "Utilities/Gsl.hpp"
 #include "Utilities/Math.hpp"
 
@@ -123,6 +124,31 @@ std::pair<double, double> extract_second_order_flux(
                                       psi7_2nd * pow(sin_theta, n_psi7 + 2))) *
                             get(face_jacobian) * integrand_multiplier,
                         mesh.slice_away(0));
+  // Diagnostic: check for cancellation between the psi7 and psi9
+  // contributions to the (psi7*s^(n7+2) - psi9*s^(n9-2)) combination that
+  // enters the flux. If max|A| is much smaller than max|psi7 term| and
+  // max|psi9 term|, the flux is disproportionately sensitive to ordinary
+  // numerical noise in psi7/psi9 individually.
+  {
+    const ComplexDataVector psi7_1st_term =
+        psi7_1st * pow(sin_theta, n_psi7 + 2);
+    const ComplexDataVector psi9_1st_term =
+        psi9_1st * pow(sin_theta, n_psi9 - 2);
+    const ComplexDataVector a_1st = psi7_1st_term - psi9_1st_term;
+    const ComplexDataVector psi7_2nd_term =
+        psi7_2nd * pow(sin_theta, n_psi7 + 2);
+    const ComplexDataVector psi9_2nd_term =
+        psi9_2nd * pow(sin_theta, n_psi9 - 2);
+    const ComplexDataVector a_2nd = psi7_2nd_term - psi9_2nd_term;
+    Parallel::printf(
+        "psi7/psi9 cancellation check (1st order): max|psi7*s^(n7+2)|=%e, "
+        "max|psi9*s^(n9-2)|=%e, max|A|=%e\n",
+        max(abs(psi7_1st_term)), max(abs(psi9_1st_term)), max(abs(a_1st)));
+    Parallel::printf(
+        "psi7/psi9 cancellation check (2nd order): max|psi7*s^(n7+2)|=%e, "
+        "max|psi9*s^(n9-2)|=%e, max|A|=%e\n",
+        max(abs(psi7_2nd_term)), max(abs(psi9_2nd_term)), max(abs(a_2nd)));
+  }
   const double surface_area = definite_integral(
       integrand_multiplier * get(face_jacobian), mesh.slice_away(0));
   return {energy_flux, surface_area};
