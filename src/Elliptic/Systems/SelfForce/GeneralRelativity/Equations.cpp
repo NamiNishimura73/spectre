@@ -15,6 +15,15 @@
 
 namespace GrSelfForce {
 
+namespace {
+// Static m=0 reduction: vr, vtheta, rphi, thetaphi are algebraically
+// constrained via beta (see CircularOrbit ABC), so they carry no flux.
+constexpr bool is_constrained_component(const size_t a, const size_t b) {
+  return (a == 1 and b == 0) or (a == 2 and b == 0) or
+         (a == 3 and b == 1) or (a == 3 and b == 2);
+}
+}  // namespace
+
 void fluxes(const gsl::not_null<FluxTensorType*> flux,
             const tnsr::I<ComplexDataVector, 2>& alpha,
             const GradTensorType& field_gradient) {
@@ -22,9 +31,15 @@ void fluxes(const gsl::not_null<FluxTensorType*> flux,
     for (size_t b = 0; b <= a; ++b) {
       flux->get(0, a, b) = get<0>(alpha) * field_gradient.get(0, a, b);
       flux->get(1, a, b) = get<1>(alpha) * field_gradient.get(1, a, b);
+      if (is_constrained_component(a, b)) {
+        // Static m=0 reduction: these components carry no flux.
+        flux->get(0, a, b) = 0.0;   // component is now sized, so this fills it
+        flux->get(1, a, b) = 0.0;
+      }
     }
   }
 }
+
 
 void fluxes_on_face(const gsl::not_null<FluxTensorType*> flux,
                     const tnsr::I<ComplexDataVector, 2>& alpha,
@@ -36,6 +51,11 @@ void fluxes_on_face(const gsl::not_null<FluxTensorType*> flux,
           get<0>(alpha) * get<0>(face_normal_vector) * field.get(a, b);
       flux->get(1, a, b) =
           get<1>(alpha) * get<1>(face_normal_vector) * field.get(a, b);
+      if (is_constrained_component(a, b)) {
+        // Static m=0 reduction: these components carry no flux.
+        flux->get(0, a, b) = 0.0;   // component is now sized, so this fills it
+        flux->get(1, a, b) = 0.0;
+      }
     }
   }
 }

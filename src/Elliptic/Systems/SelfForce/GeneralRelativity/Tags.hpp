@@ -55,16 +55,12 @@ namespace Tags {
  * \end{equation}
  * and further decomposition with convenient prefactors:
  * \begin{align*}
- * &(\Psi_m)_{tt} = r \bar{h}^m_{tt} \\
- * &(\Psi_m)_{tr} = \frac{\Delta}{r} \bar{h}^m_{tr} \\
- * &(\Psi_m)_{t\theta} = \bar{h}^m_{t\theta} \\
- * &(\Psi_m)_{t\phi} = \frac{1}{\sin\theta} \bar{h}^m_{t\phi} \\
- * &(\Psi_m)_{rr} = \frac{\Delta^2}{r^3} \bar{h}^m_{rr} \\
- * &(\Psi_m)_{r\theta} = \frac{\Delta}{r^2} \bar{h}^m_{r\theta} \\
- * &(\Psi_m)_{r\phi} = \frac{\Delta}{r^2\sin\theta} \bar{h}^m_{r\phi} \\
- * &(\Psi_m)_{\theta\theta} = \frac{1}{r} \bar{h}^m_{\theta\theta} \\
- * &(\Psi_m)_{\theta\phi} = \frac{1}{r\sin\theta} \bar{h}^m_{\theta\phi} \\
- * &(\Psi_m)_{\phi\phi} = \frac{1}{r\sin^2\theta} \bar{h}^m_{\phi\phi} \\
+ * &(\Psi_m)_{vv} 
+ * &(\Psi_m)_{v\phi}
+ * &(\Psi_m)_{rr}
+ * &(\Psi_m)_{r\theta} 
+ * &(\Psi_m)_{\theta\theta}
+ * &(\Psi_m)_{\phi\phi}
  * \end{align*}
  */
 struct MMode : db::SimpleTag {
