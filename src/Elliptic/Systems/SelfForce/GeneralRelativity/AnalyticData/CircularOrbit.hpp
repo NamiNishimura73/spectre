@@ -85,6 +85,11 @@ class CircularOrbit : public elliptic::analytic_data::Background,
         "coordinate where the Kerr horizon is at r_+.";
     using type = bool;
   };
+  struct Reduced_ABC {
+    static constexpr Options::String help =
+        "If 'True', use Reduced ABC matrix everywhere ";
+    using type = bool;
+  };
   struct Version {
     static constexpr Options::String help =
         "Version of the GrSelfForce PDE coefficients (2 or 3). "
@@ -93,7 +98,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   };
   using options = tmpl::list<BlackHoleMass, BlackHoleSpin, OrbitalRadius,
                              MModeNumber, HyperboloidalSlicingTransitions,
-                             PenetratingHorizon, Version>;
+                             PenetratingHorizon, Reduced_ABC, Version>;
   static constexpr Options::String help =
       "Quasicircular orbit of a point mass in Kerr spacetime";
 
@@ -109,6 +114,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
                 const std::optional<std::array<double, 4>>&
                     hyperboloidal_slicing_transitions,
                 bool penetrating_horizon,
+                bool reduced_ABC = false,
                 std::optional<int> version = std::nullopt);
 
   explicit CircularOrbit(CkMigrateMessage* m);
@@ -128,6 +134,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   DataVector hyperboloidal_boost_function(const DataVector& r) const;
   bool penetrating_horizon() const { return penetrating_horizon_; }
   int version() const { return version_; }
+  bool reduced_ABC() const { return reduced_ABC_; }
   using background_tags =
       tmpl::list<Tags::Alpha, Tags::Beta, Tags::GammaRstar, Tags::GammaTheta>;
   using source_tags = tmpl::list<
@@ -169,6 +176,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   int m_mode_number_{};
   std::optional<std::array<double, 4>> hyperboloidal_slicing_transitions_{};
   bool penetrating_horizon_{false};
+  bool reduced_ABC_{false};
   int version_{};
 };
 

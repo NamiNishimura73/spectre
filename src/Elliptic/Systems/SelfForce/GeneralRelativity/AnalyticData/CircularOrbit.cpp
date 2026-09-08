@@ -56,6 +56,7 @@ CircularOrbit::CircularOrbit(const double black_hole_mass,
                              const std::optional<std::array<double, 4>>&
                                  hyperboloidal_slicing_transitions,
                              const bool penetrating_horizon,
+                             const bool reduced_ABC,
                              const std::optional<int> version)
     : black_hole_mass_(black_hole_mass),
       black_hole_spin_(black_hole_spin),
@@ -63,6 +64,7 @@ CircularOrbit::CircularOrbit(const double black_hole_mass,
       m_mode_number_(m_mode_number),
       hyperboloidal_slicing_transitions_(hyperboloidal_slicing_transitions),
       penetrating_horizon_(penetrating_horizon),
+      reduced_ABC_(reduced_ABC),
       version_(version.value_or(0)) {
   if (penetrating_horizon_ and (version_ != 2 and version_ != 3)) {
     ERROR("When PenetratingHorizon is true, Version must be 2 or 3, but got "
@@ -201,18 +203,29 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
         detail::getCimag_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
                             cos_theta[i], H[i], dH[i], Cimag_vr);
       } else if (version_ == 3) {
+        if (reduced_ABC_){
+        detail::getAreal_vrz_reduced(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Areal_vr);
+        detail::getBreal_vrz_reduced(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Breal_vr);
+        detail::getCreal_vrz_reduced(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Creal_vr);
+        detail::getCimag_vrz_reduced(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Cimag_vr);
+        } else {
         detail::getAreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
                              cos_theta[i], H[i], dH[i], Areal_vr);
-        detail::getAimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                             cos_theta[i], H[i], dH[i], Aimag_vr);
         detail::getBreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
                              cos_theta[i], H[i], dH[i], Breal_vr);
-        detail::getBimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                             cos_theta[i], H[i], dH[i], Bimag_vr);
         detail::getCreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
                              cos_theta[i], H[i], dH[i], Creal_vr);
         detail::getCimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
                              cos_theta[i], H[i], dH[i], Cimag_vr);
+        }
+        detail::getAimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Aimag_vr);
+        detail::getBimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                             cos_theta[i], H[i], dH[i], Bimag_vr);
       }
       // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
       for (size_t a1 = 0; a1 < 4; ++a1) {
@@ -593,6 +606,7 @@ void CircularOrbit::pup(PUP::er& p) {
   p | m_mode_number_;
   p | hyperboloidal_slicing_transitions_;
   p | penetrating_horizon_;
+  p | reduced_ABC_;
   p | version_;
 }
 
@@ -604,6 +618,7 @@ bool operator==(const CircularOrbit& lhs, const CircularOrbit& rhs) {
          lhs.hyperboloidal_slicing_transitions_ ==
              rhs.hyperboloidal_slicing_transitions_ and
          lhs.penetrating_horizon_ == rhs.penetrating_horizon_ and
+         lhs.reduced_ABC_ == rhs.reduced_ABC_ and
          lhs.version_ == rhs.version_;
 }
 

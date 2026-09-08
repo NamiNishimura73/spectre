@@ -39,9 +39,18 @@ using FluxTensorType =
  * \brief The first-order flux $F^i=\{\partial_{r_\star}, \alpha
  * \partial_\theta\}\Psi_m$.
  */
+/// \brief True when the reduced (static m=0) ABC is active for this run, so the
+/// four constrained components (vr, vtheta, rphi, thetaphi) must carry no flux
+/// -- in the volume operator *and* in the singular-field mortar transfer.
+bool zero_constrained_flux(
+    const elliptic::analytic_data::Background& background);
+
+/// \param zero_constrained when true, zero the flux for the four components
+/// that the reduced (static m=0) ABC constrains algebraically (vr, vtheta,
+/// rphi, thetaphi), so those rows carry no principal part.
 void fluxes(gsl::not_null<FluxTensorType*> flux,
             const tnsr::I<ComplexDataVector, 2>& alpha,
-            const GradTensorType& field_gradient);
+            const GradTensorType& field_gradient, bool zero_constrained);
 
 /*!
  * \brief The first-order flux on an element face
@@ -50,7 +59,8 @@ void fluxes(gsl::not_null<FluxTensorType*> flux,
 void fluxes_on_face(gsl::not_null<FluxTensorType*> flux,
                     const tnsr::I<ComplexDataVector, 2>& alpha,
                     const tnsr::I<DataVector, 2>& face_normal_vector,
-                    const tnsr::aa<ComplexDataVector, 3>& field);
+                    const tnsr::aa<ComplexDataVector, 3>& field,
+                    bool zero_constrained);
 
 /*!
  * \brief The source term $\beta_{ab}^{cd} (\Psi_m)_{cd} + \gamma_{iab}^{cd}
@@ -66,17 +76,22 @@ void add_sources(gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> source,
 /// Fluxes $F^i$ for the gravitational self-force system.
 /// \see GrSelfForce::FirstOrderSystem
 struct Fluxes {
-  using argument_tags = tmpl::list<Tags::Alpha>;
-  using volume_tags = tmpl::list<>;
-  using const_global_cache_tags = tmpl::list<>;
+  using argument_tags = tmpl::list<
+      Tags::Alpha,
+      elliptic::Tags::Background<elliptic::analytic_data::Background>>;
+  using volume_tags = tmpl::list<
+      elliptic::Tags::Background<elliptic::analytic_data::Background>>;
+  using const_global_cache_tags = volume_tags;
   static constexpr bool is_trivial = false;
   static constexpr bool is_discontinuous = false;
   static void apply(gsl::not_null<FluxTensorType*> flux,
                     const tnsr::I<ComplexDataVector, 2>& alpha,
+                    const elliptic::analytic_data::Background& background,
                     const tnsr::aa<ComplexDataVector, 3>& /*field*/,
                     const GradTensorType& field_gradient);
   static void apply(gsl::not_null<FluxTensorType*> flux,
                     const tnsr::I<ComplexDataVector, 2>& alpha,
+                    const elliptic::analytic_data::Background& background,
                     const tnsr::i<DataVector, 2>& /*face_normal*/,
                     const tnsr::I<DataVector, 2>& face_normal_vector,
                     const tnsr::aa<ComplexDataVector, 3>& field);

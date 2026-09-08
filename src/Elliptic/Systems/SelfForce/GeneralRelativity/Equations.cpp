@@ -24,36 +24,45 @@ constexpr bool is_constrained_component(const size_t a, const size_t b) {
 }
 }  // namespace
 
+bool zero_constrained_flux(const elliptic::analytic_data::Background& bg) {
+  if (const auto* co = dynamic_cast<const AnalyticData::CircularOrbit*>(&bg)) {
+    return co->reduced_ABC() and co->m_mode_number() == 0;
+  }
+  if (const auto* nd = dynamic_cast<const AnalyticData::NumericData*>(&bg)) {
+    return nd->circular_orbit().reduced_ABC() and
+           nd->circular_orbit().m_mode_number() == 0;
+  }
+  return false;
+}
+
 void fluxes(const gsl::not_null<FluxTensorType*> flux,
             const tnsr::I<ComplexDataVector, 2>& alpha,
-            const GradTensorType& field_gradient) {
+            const GradTensorType& field_gradient, const bool zero_constrained) {
   for (size_t a = 0; a < 4; ++a) {
     for (size_t b = 0; b <= a; ++b) {
       flux->get(0, a, b) = get<0>(alpha) * field_gradient.get(0, a, b);
       flux->get(1, a, b) = get<1>(alpha) * field_gradient.get(1, a, b);
-      if (is_constrained_component(a, b)) {
-        // Static m=0 reduction: these components carry no flux.
-        flux->get(0, a, b) = 0.0;   // component is now sized, so this fills it
+      if (zero_constrained and is_constrained_component(a, b)) {
+        flux->get(0, a, b) = 0.0;  // component is sized above, so this fills it
         flux->get(1, a, b) = 0.0;
       }
     }
   }
 }
 
-
 void fluxes_on_face(const gsl::not_null<FluxTensorType*> flux,
                     const tnsr::I<ComplexDataVector, 2>& alpha,
                     const tnsr::I<DataVector, 2>& face_normal_vector,
-                    const tnsr::aa<ComplexDataVector, 3>& field) {
+                    const tnsr::aa<ComplexDataVector, 3>& field,
+                    const bool zero_constrained) {
   for (size_t a = 0; a < 4; ++a) {
     for (size_t b = 0; b <= a; ++b) {
       flux->get(0, a, b) =
           get<0>(alpha) * get<0>(face_normal_vector) * field.get(a, b);
       flux->get(1, a, b) =
           get<1>(alpha) * get<1>(face_normal_vector) * field.get(a, b);
-      if (is_constrained_component(a, b)) {
-        // Static m=0 reduction: these components carry no flux.
-        flux->get(0, a, b) = 0.0;   // component is now sized, so this fills it
+      if (zero_constrained and is_constrained_component(a, b)) {
+        flux->get(0, a, b) = 0.0;
         flux->get(1, a, b) = 0.0;
       }
     }
@@ -82,17 +91,20 @@ void add_sources(const gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> source,
 
 void Fluxes::apply(const gsl::not_null<FluxTensorType*> flux,
                    const tnsr::I<ComplexDataVector, 2>& alpha,
+                   const elliptic::analytic_data::Background& background,
                    const tnsr::aa<ComplexDataVector, 3>& /*field*/,
                    const GradTensorType& field_gradient) {
-  fluxes(flux, alpha, field_gradient);
+  fluxes(flux, alpha, field_gradient, zero_constrained_flux(background));
 }
 
 void Fluxes::apply(const gsl::not_null<FluxTensorType*> flux,
                    const tnsr::I<ComplexDataVector, 2>& alpha,
+                   const elliptic::analytic_data::Background& background,
                    const tnsr::i<DataVector, 2>& /*face_normal*/,
                    const tnsr::I<DataVector, 2>& face_normal_vector,
                    const tnsr::aa<ComplexDataVector, 3>& field) {
-  fluxes_on_face(flux, alpha, face_normal_vector, field);
+  fluxes_on_face(flux, alpha, face_normal_vector, field,
+                 zero_constrained_flux(background));
 }
 
 void Sources::apply(

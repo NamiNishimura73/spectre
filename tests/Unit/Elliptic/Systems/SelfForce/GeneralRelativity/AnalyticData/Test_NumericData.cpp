@@ -55,9 +55,9 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.NumericData",
 
   const NumericData numeric_data{h5_file,    bh_mass,         bh_spin,
                                  orbital_radius, m_mode, transitions,
-                                 true, 2, false};
+                                 true, false, 2, false};
   const CircularOrbit circular_orbit{bh_mass, bh_spin, orbital_radius,
-                                     m_mode, transitions, true, 2};
+                                     m_mode, transitions, true, false, 2};
 
   const Approx approx = Approx::custom().epsilon(1.e-5).scale(1.);
 

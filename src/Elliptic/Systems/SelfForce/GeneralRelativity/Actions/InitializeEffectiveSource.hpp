@@ -275,9 +275,13 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
             const auto& alpha_on_mortar =
                 get<Tags::Alpha>(background_on_mortar);
             FluxTensorType singular_field_flux_on_mortar{};
+            // With the reduced (static m=0) ABC the constrained components
+            // carry no flux anywhere -- including the h^S transfer -- so the
+            // mortar stays consistent with the flux-free volume rows.
             GrSelfForce::fluxes(make_not_null(&singular_field_flux_on_mortar),
                                 alpha_on_mortar,
-                                deriv_singular_field_on_mortar);
+                                deriv_singular_field_on_mortar,
+                                GrSelfForce::zero_constrained_flux(background));
             // Assuming mortar normal is just (1, 0, 0)
             tnsr::i<DataVector, Dim> mortar_normal{
                 mortar_inertial_coords.begin()->size(), 0.};

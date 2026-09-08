@@ -173,7 +173,8 @@ NumericData::NumericData(
     const double black_hole_spin, const double orbital_radius,
     const int m_mode_number,
     const std::array<double, 4> hyperboloidal_slicing_transitions,
-    const bool penetrating_horizon, const int version, const bool pi_2_rotation)
+    const bool penetrating_horizon, const bool reduced_ABC, 
+    const int version, const bool pi_2_rotation)
     : filename_(std::move(filename)),
       circular_orbit_(black_hole_mass, black_hole_spin, orbital_radius,
                       m_mode_number,
@@ -181,7 +182,7 @@ NumericData::NumericData(
                          hyperboloidal_slicing_transitions[1],
                          hyperboloidal_slicing_transitions[2],
                          hyperboloidal_slicing_transitions[3]}}},
-                      penetrating_horizon, version),
+                      penetrating_horizon, reduced_ABC, version),
       pi_2_rotation_(pi_2_rotation) {
   interpolators_ = load_all_data(filename_);
   boundary_interpolators_ = load_all_boundary_data(filename_);

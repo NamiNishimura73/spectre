@@ -99,6 +99,11 @@ class NumericData : public elliptic::analytic_data::Background,
         "coordinate where the Kerr horizon is at r_+.";
     using type = bool;
   };
+  struct Reduced_ABC {
+    static constexpr Options::String help =
+        "If 'True', use Reduced ABC matrix everywhere ";
+    using type = bool;
+  };
   struct Pi_2_Rotation {
     static constexpr Options::String help =
         "If 'True', multiply h5 data by 2 pi * rotation factor "
@@ -114,7 +119,7 @@ class NumericData : public elliptic::analytic_data::Background,
   using options =
       tmpl::list<Filename, BlackHoleMass, BlackHoleSpin, OrbitalRadius,
                  MModeNumber, HyperboloidalSlicingTransitions,
-                 PenetratingHorizon, Version, Pi_2_Rotation>;
+                 PenetratingHorizon, Reduced_ABC, Version, Pi_2_Rotation>;
   static constexpr Options::String help =
       "Numeric data for the effective source and singular field";
 
@@ -128,7 +133,8 @@ class NumericData : public elliptic::analytic_data::Background,
   NumericData(std::string filename, double black_hole_mass,
               double black_hole_spin, double orbital_radius, int m_mode_number,
               std::array<double, 4> hyperboloidal_slicing_transitions,
-              bool penetrating_horizon, int version, bool pi_2_rotation);
+              bool penetrating_horizon, bool reduced_ABC,
+              int version, bool pi_2_rotation);
 
   explicit NumericData(CkMigrateMessage* m);
   using PUP::able::register_constructor;
