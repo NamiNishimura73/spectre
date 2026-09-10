@@ -22,7 +22,8 @@ Background: &background
       - &t_to_u_transition 15
       - *t_to_u_transition
     PenetratingHorizon: True
-    Version: 2
+    Compactification: False
+    Version: 3
 
 # Background: &background
 #   NumericData:

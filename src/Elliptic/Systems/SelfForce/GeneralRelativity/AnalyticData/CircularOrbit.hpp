@@ -85,15 +85,23 @@ class CircularOrbit : public elliptic::analytic_data::Background,
         "coordinate where the Kerr horizon is at r_+.";
     using type = bool;
   };
+  struct Compactification {
+    static constexpr Options::String help =
+        "If 'True', compactify the wavezone (u-region) to r=infinity. "
+        "Requires PenetratingHorizon=True and Version=3.";
+    using type = bool;
+    static constexpr type default_value = false;
+  };
+
   struct Version {
     static constexpr Options::String help =
         "Version of the GrSelfForce PDE coefficients (2 or 3). "
-        "Both assume PenetratingHorizon to be true";
+        "Required when PenetratingHorizon is true.";
     using type = int;
   };
   using options = tmpl::list<BlackHoleMass, BlackHoleSpin, OrbitalRadius,
                              MModeNumber, HyperboloidalSlicingTransitions,
-                             PenetratingHorizon, Version>;
+                             PenetratingHorizon, Compactification, Version>;
   static constexpr Options::String help =
       "Quasicircular orbit of a point mass in Kerr spacetime";
 
@@ -109,7 +117,8 @@ class CircularOrbit : public elliptic::analytic_data::Background,
                 const std::optional<std::array<double, 4>>&
                     hyperboloidal_slicing_transitions,
                 bool penetrating_horizon,
-                int version);
+                bool compactification,
+                std::optional<int> version = std::nullopt);
 
   explicit CircularOrbit(CkMigrateMessage* m);
   using PUP::able::register_constructor;
@@ -126,6 +135,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
     return hyperboloidal_slicing_transitions_;
   }
   bool penetrating_horizon() const { return penetrating_horizon_; }
+  bool compactification() const { return compactification_; }
   int version() const { return version_; }
   using background_tags =
       tmpl::list<Tags::Alpha, Tags::Beta, Tags::GammaRstar, Tags::GammaTheta>;
@@ -167,6 +177,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   int m_mode_number_{};
   std::optional<std::array<double, 4>> hyperboloidal_slicing_transitions_{};
   bool penetrating_horizon_{false};
+  bool compactification_{false};
   int version_{};
 };
 

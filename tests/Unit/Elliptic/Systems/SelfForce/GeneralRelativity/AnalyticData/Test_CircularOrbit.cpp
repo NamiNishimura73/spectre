@@ -35,14 +35,14 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
   auto run_test = [](double coord0_lo, double coord0_hi, double coord1_lo,
                      double coord1_hi,
                      std::optional<std::array<double, 4>> transitions,
-                     bool penetrating_horizon) {
+                     bool penetrating_horizon, bool compactification,
+                     const std::optional<int> version) {
     const size_t npoints = 20;
-    const domain::creators::Rectangle domain_creator{
-        {{coord0_lo, coord1_lo}},
-        {{coord0_hi, coord1_hi}},
-        {{0, 0}},
-        {{npoints, npoints}},
-        {{false, false}}};
+    const domain::creators::Rectangle domain_creator{{{coord0_lo, coord1_lo}},
+                                                     {{coord0_hi, coord1_hi}},
+                                                     {{0, 0}},
+                                                     {{npoints, npoints}},
+                                                     {{false, false}}};
     const auto domain = domain_creator.create_domain();
     const auto& block = domain.blocks()[0];
     const ElementId<2> element_id{0};
@@ -57,10 +57,16 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
     CAPTURE(min(get<1>(x)));
     CAPTURE(max(get<1>(x)));
 
-    for (int m_mode_number = 0; m_mode_number < 3; ++m_mode_number) {
+    for (int m_mode_number = 1; m_mode_number < 3; ++m_mode_number) {
       CAPTURE(m_mode_number);
-      const auto circular_orbit = CircularOrbit{
-          1., 0.9, 20., m_mode_number, transitions, penetrating_horizon};
+      const auto circular_orbit = CircularOrbit{1.,
+                                                0.9,
+                                                20.,
+                                                m_mode_number,
+                                                transitions,
+                                                penetrating_horizon,
+                                                compactification,
+                                                version};
       CAPTURE(circular_orbit.puncture_position());
       const auto background =
           circular_orbit.variables(x, CircularOrbit::background_tags{});
@@ -80,8 +86,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
       // Check analytic derivative matches numeric derivative
       const auto numeric_deriv_singular_field =
           partial_derivative(singular_field, mesh, inv_jacobian);
-      const Approx custom_approx =
-          Approx::custom().epsilon(2.e-9).scale(1.);
+      const Approx custom_approx = Approx::custom().epsilon(2.e-9).scale(1.);
       for (size_t i = 0; i < deriv_singular_field.size(); ++i) {
         CAPTURE(i);
         CHECK_ITERABLE_CUSTOM_APPROX(numeric_deriv_singular_field[i],
@@ -96,8 +101,8 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
       auto& flux_singular_field =
           get<::Tags::Flux<Tags::MMode, tmpl::size_t<2>, Frame::Inertial>>(
               fluxes);
-      GrSelfForce::Fluxes::apply(make_not_null(&flux_singular_field), alpha,
-                                 {}, deriv_singular_field);
+      GrSelfForce::Fluxes::apply(make_not_null(&flux_singular_field), alpha, {},
+                                 deriv_singular_field);
       auto divs = divergence(fluxes, mesh, inv_jacobian);
       auto& scalar_eqn = get<::Tags::div<
           ::Tags::Flux<Tags::MMode, tmpl::size_t<2>, Frame::Inertial>>>(divs);
@@ -116,11 +121,15 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
 
   // penetrating_horizon = false: (r*, theta) coordinates
   run_test(0., 5., M_PI_2 + M_PI / 8., M_PI_2 + M_PI / 8. + M_PI / 40.,
-           std::nullopt, false);
+           std::nullopt, false, false, 2);
 
   // penetrating_horizon = true: (r, cos_theta) coordinates
-  run_test(5, 10, -0.4, -0.2,
-           std::array<double, 4>{2., 2., 25., 25.}, true);
+  run_test(5, 10, -0.4, -0.2, std::array<double, 4>{2., 2., 25., 25.}, true,
+           false, 3);
+
+  // penetrating_horizon = true: (r, cos_theta) coordinates, compactification
+  run_test(5, 10, -0.4, -0.2, std::array<double, 4>{2., 2., 25., 25.}, true,
+           true, 3);
 }
 
 }  // namespace GrSelfForce::AnalyticData

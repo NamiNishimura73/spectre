@@ -55,25 +55,29 @@ CircularOrbit::CircularOrbit(const double black_hole_mass,
                              const int m_mode_number,
                              const std::optional<std::array<double, 4>>&
                                  hyperboloidal_slicing_transitions,
-                             const bool penetrating_horizon, const int version)
+                             const bool penetrating_horizon,
+                             const bool compactification,
+                             const std::optional<int> version)
     : black_hole_mass_(black_hole_mass),
       black_hole_spin_(black_hole_spin),
       orbital_radius_(orbital_radius),
       m_mode_number_(m_mode_number),
       hyperboloidal_slicing_transitions_(hyperboloidal_slicing_transitions),
       penetrating_horizon_(penetrating_horizon),
-      version_(version) {
-  if (version_ != 2 and version_ != 3) {
-    ERROR("Version must be 2 or 3, but got " << version_ << ".");
-  }
-  if (not penetrating_horizon_) {
-    ERROR("Version " << version_ << " requires PenetratingHorizon to be true.");
+      compactification_(compactification),
+      version_(version.value_or(0)) {
+  if (penetrating_horizon_ and (version_ != 2 and version_ != 3)) {
+    ERROR("When PenetratingHorizon is true, Version must be 2 or 3, but got "
+          << version_ << ".");
   }
   if (penetrating_horizon_ and
       not hyperboloidal_slicing_transitions_.has_value()) {
     ERROR(
         "Hyperboloidal slicing must be enabled when penetrating_horizon is "
         "true.");
+  }
+  if (compactification_ and (not penetrating_horizon_ or version_ != 3)) {
+    ERROR("Compactification requires PenetratingHorizon=true and Version=3.");
   }
 }
 
@@ -137,7 +141,25 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
     theta.set_data_ref(const_cast<DataVector*>(&theta_or_cos_theta));
     cos_theta = cos(theta);
   }
-
+  DataVector inv_r{};
+  DataVector dsigma_dr{};
+  if (compactification_) {
+    const bool in_u_region = penetrating_horizon_ and
+                             r[0] > (*hyperboloidal_slicing_transitions_)[3];
+    const double r_u =
+        penetrating_horizon_ ? (*hyperboloidal_slicing_transitions_)[3] : 0.0;
+    if (in_u_region) {
+      // Inside u-region, x coordinate is defined as
+      // 2 r_u - r_u^2/r to compactify the wavezone.
+      // Elliptic PDEs will be re-written as a function of
+      // inv_r (1/r) instead of r.
+      inv_r = (2.0 * r_u - r) / (r_u * r_u);
+      dsigma_dr = square(r_u) * square(inv_r);
+    } else {
+      inv_r = 1.0 / r;
+      dsigma_dr = make_with_value<DataVector>(r_star_or_r, 1.0);
+    }
+  }
   const DataVector delta = r_minus_r_plus * (r - r_minus);
   const DataVector r_sq_plus_a_sq = square(r) + square(a);
   const DataVector r_sq_plus_a_sq_sq = square(r_sq_plus_a_sq);
@@ -153,8 +175,17 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
   auto& gamma_theta = get<Tags::GammaTheta>(result);
   const size_t num_points = r.size();
   if (penetrating_horizon_) {
-    get<0>(alpha) = delta / r_sq_plus_a_sq;
-    get<1>(alpha) = sin_theta_squared / r_sq_plus_a_sq;
+    if (compactification_) {
+      const DataVector one_plus_a_sq_inv_r_sq = 1.0 + square(a) * square(inv_r);
+      const DataVector delta_over_r_sq =
+          one_plus_a_sq_inv_r_sq - 2.0 * M * inv_r;
+      get<0>(alpha) = (delta_over_r_sq / one_plus_a_sq_inv_r_sq) * dsigma_dr;
+      get<1>(alpha) = sin_theta_squared *
+                      (square(inv_r) / one_plus_a_sq_inv_r_sq) / dsigma_dr;
+    } else {
+      get<0>(alpha) = delta / r_sq_plus_a_sq;
+      get<1>(alpha) = sin_theta_squared / r_sq_plus_a_sq;
+    }
   } else {
     get<0>(alpha) = make_with_value<DataVector>(r_star_or_r, 1.0);
     get<1>(alpha) = delta / r_sq_plus_a_sq_sq;
@@ -193,18 +224,39 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
         detail::getCimag_vr(m_mode_number_, a, m_mode_number_ * omega, r[i],
                             cos_theta[i], H[i], dH[i], Cimag_vr);
       } else if (version_ == 3) {
-        detail::getAreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                             cos_theta[i], H[i], dH[i], Areal_vr);
-        detail::getAimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                             cos_theta[i], H[i], dH[i], Aimag_vr);
-        detail::getBreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                             cos_theta[i], H[i], dH[i], Breal_vr);
-        detail::getBimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                             cos_theta[i], H[i], dH[i], Bimag_vr);
-        detail::getCreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                             cos_theta[i], H[i], dH[i], Creal_vr);
-        detail::getCimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                             cos_theta[i], H[i], dH[i], Cimag_vr);
+        if (compactification_) {
+          detail::getAreal_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
+                                    inv_r[i], cos_theta[i], H[i], dH[i],
+                                    Areal_vr);
+          detail::getAimag_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
+                                    inv_r[i], cos_theta[i], H[i], dH[i],
+                                    Aimag_vr);
+          detail::getBreal_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
+                                    inv_r[i], cos_theta[i], H[i], dH[i],
+                                    Breal_vr);
+          detail::getBimag_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
+                                    inv_r[i], cos_theta[i], H[i], dH[i],
+                                    Bimag_vr);
+          detail::getCreal_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
+                                    inv_r[i], cos_theta[i], H[i], dH[i],
+                                    Creal_vr);
+          detail::getCimag_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
+                                    inv_r[i], cos_theta[i], H[i], dH[i],
+                                    Cimag_vr);
+        } else {
+          detail::getAreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                               cos_theta[i], H[i], dH[i], Areal_vr);
+          detail::getAimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                               cos_theta[i], H[i], dH[i], Aimag_vr);
+          detail::getBreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                               cos_theta[i], H[i], dH[i], Breal_vr);
+          detail::getBimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                               cos_theta[i], H[i], dH[i], Bimag_vr);
+          detail::getCreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                               cos_theta[i], H[i], dH[i], Creal_vr);
+          detail::getCimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                               cos_theta[i], H[i], dH[i], Cimag_vr);
+        }
       }
       // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
       for (size_t a1 = 0; a1 < 4; ++a1) {
@@ -226,6 +278,10 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
               beta.get(a1, b, c, d)[i] =
                   Creal_vr[matrix_i][matrix_j] +
                   std::complex<double>(0., 1.) * Cimag_vr[matrix_i][matrix_j];
+              if (compactification_) {
+                gamma_theta.get(a1, b, c, d)[i] /= dsigma_dr[i];
+                beta.get(a1, b, c, d)[i] /= dsigma_dr[i];
+              }
             }
           }
         }
@@ -555,6 +611,7 @@ void CircularOrbit::pup(PUP::er& p) {
   p | m_mode_number_;
   p | hyperboloidal_slicing_transitions_;
   p | penetrating_horizon_;
+  p | compactification_;
   p | version_;
 }
 
@@ -566,6 +623,7 @@ bool operator==(const CircularOrbit& lhs, const CircularOrbit& rhs) {
          lhs.hyperboloidal_slicing_transitions_ ==
              rhs.hyperboloidal_slicing_transitions_ and
          lhs.penetrating_horizon_ == rhs.penetrating_horizon_ and
+         lhs.compactification_ == rhs.compactification_ and
          lhs.version_ == rhs.version_;
 }
 
