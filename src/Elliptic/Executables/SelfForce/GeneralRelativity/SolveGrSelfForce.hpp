@@ -22,6 +22,7 @@
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/BoundaryConditions/Sommerfeld.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Events/ObserveFlux.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Events/ObserveRedshift.hpp"
+#include "Elliptic/Systems/SelfForce/GeneralRelativity/Events/ObserveSecondOrderFlux.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/FirstOrderSystem.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Tags.hpp"
 #include "Elliptic/Triggers/Factory.hpp"
@@ -120,6 +121,8 @@ struct Metavariables {
                                                amr::Tags::IsFinestGrid>,
                 GrSelfForce::Events::ObserveFlux<amr::Tags::IsFinestGrid>,
                 GrSelfForce::Events::ObserveRedshift<
+                    amr::Tags::IsFinestGrid>,
+                GrSelfForce::Events::ObserveSecondOrderFlux<
                     amr::Tags::IsFinestGrid>>>>,
         tmpl::pair<Trigger, elliptic::Triggers::all_triggers<
                                 ::amr::OptionTags::AmrGroup>>,

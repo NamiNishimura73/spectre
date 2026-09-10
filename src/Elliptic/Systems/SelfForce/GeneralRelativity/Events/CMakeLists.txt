@@ -10,6 +10,7 @@ spectre_target_sources(
   PRIVATE
   ObserveFlux.cpp
   ObserveRedshift.cpp
+  ObserveSecondOrderFlux.cpp
   )
 
 spectre_target_headers(
@@ -18,6 +19,7 @@ spectre_target_headers(
   HEADERS
   ObserveFlux.hpp
   ObserveRedshift.hpp
+  ObserveSecondOrderFlux.hpp
   )
 
 target_link_libraries(
@@ -32,5 +34,6 @@ target_link_libraries(
   Utilities
   PRIVATE
   DiscontinuousGalerkin
+  Exporter
   LinearOperators
   )
