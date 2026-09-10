@@ -382,13 +382,15 @@ tuples::TaggedTuple<Tags::MMode> CircularOrbit::variables(
 tuples::TaggedTuple<
     ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
     ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-    Tags::BoyerLindquistRadius>
+    Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+    Tags::RawPuncture, Tags::EF_Puncture>
 CircularOrbit::variables(
     const tnsr::I<DataVector, 2>& x,
     tmpl::list<
         ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
         ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-        Tags::BoyerLindquistRadius> /*meta*/) const {
+        Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+        Tags::RawPuncture, Tags::EF_Puncture> /*meta*/) const {
   const double a = black_hole_spin_ * black_hole_mass_;
   const double M = black_hole_mass_;
   const double r_0 = orbital_radius_;
@@ -407,7 +409,8 @@ CircularOrbit::variables(
   tuples::TaggedTuple<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius>
+      Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+      Tags::RawPuncture, Tags::EF_Puncture>
       result{};
   const auto& r_star_or_r = get<0>(x);
   if (hyperboloidal_slicing_transitions_.has_value() and
@@ -456,9 +459,21 @@ CircularOrbit::variables(
       get<::Tags::FixedSource<Tags::MMode>>(result);
   tnsr::aa<ComplexDataVector, 3>& singular_field =
       get<Tags::SingularField>(result);
+  tnsr::aa<ComplexDataVector, 3>& raw_eff_source =
+      get<Tags::RawEffSource>(result);
+  tnsr::aa<ComplexDataVector, 3>& ef_eff_source =
+      get<Tags::EF_EffSource>(result);
+  tnsr::aa<ComplexDataVector, 3>& raw_puncture =
+      get<Tags::RawPuncture>(result);
+  tnsr::aa<ComplexDataVector, 3>& ef_puncture =
+      get<Tags::EF_Puncture>(result);
   for (size_t i = 0; i < singular_field.size(); i++) {
     effective_source[i].destructive_resize(num_points);
     singular_field[i].destructive_resize(num_points);
+    raw_eff_source[i].destructive_resize(num_points);
+    ef_eff_source[i].destructive_resize(num_points);
+    raw_puncture[i] = ComplexDataVector(num_points, 0.);
+    ef_puncture[i] = ComplexDataVector(num_points, 0.);
   }
   auto& deriv_singular_field =
       get<::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>>(
@@ -540,6 +555,13 @@ CircularOrbit::variables(
             effective_source.get(a1, b)[i] =
                 src_conv_re[comp] +
                 std::complex<double>(0., 1.) * src_conv_im[comp];
+            // Store raw effective source
+            raw_eff_source.get(a1, b)[i] =
+                src_re[comp] + std::complex<double>(0., 1.) * src_im[comp];
+            // Store EF effective source
+            ef_eff_source.get(a1, b)[i] =
+                src_conv_re[comp] +
+                std::complex<double>(0., 1.) * src_conv_im[comp];
             singular_field.get(a1, b)[i] =
                 hS_conv_re[comp] +
                 std::complex<double>(0., 1.) * hS_conv_im[comp];
@@ -582,6 +604,13 @@ CircularOrbit::variables(
                 tnsr::aa<ComplexDataVector, 3>::get_storage_index(
                     std::array<size_t, 2>{{a1, b}});
             effective_source.get(a1, b)[i] =
+                -src_conv_re[comp] -
+                std::complex<double>(0., 1.) * src_conv_im[comp];
+            // Store raw effective source
+            raw_eff_source.get(a1, b)[i] =
+                src_re[comp] + std::complex<double>(0., 1.) * src_im[comp];
+            // Store EF effective source
+            ef_eff_source.get(a1, b)[i] =
                 -src_conv_re[comp] -
                 std::complex<double>(0., 1.) * src_conv_im[comp];
             singular_field.get(a1, b)[i] =

@@ -142,7 +142,8 @@ class NumericData : public elliptic::analytic_data::Background,
   using source_tags = tmpl::list<
       ::Tags::FixedSource<Tags::MMode>, Tags::SingularField,
       ::Tags::deriv<Tags::SingularField, tmpl::size_t<2>, Frame::Inertial>,
-      Tags::BoyerLindquistRadius>;
+     Tags::BoyerLindquistRadius, Tags::RawEffSource, Tags::EF_EffSource,
+      Tags::RawPuncture, Tags::EF_Puncture>;
 
   // Background
   tuples::tagged_tuple_from_typelist<background_tags> variables(
@@ -177,7 +178,7 @@ class NumericData : public elliptic::analytic_data::Background,
   friend bool operator==(const NumericData& lhs, const NumericData& rhs);
 
   std::string filename_;
-  std::array<Interpolator, 4> interpolators_;
+  std::array<Interpolator, 5> interpolators_;
   std::array<Interpolator1D, 4> boundary_interpolators_;
   CircularOrbit circular_orbit_;
   bool pi_2_rotation_{false};

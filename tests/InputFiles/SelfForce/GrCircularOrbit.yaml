@@ -38,7 +38,7 @@ Background: &background
 #       - &t_to_u_transition 15
 #       - *t_to_u_transition
 #     PenetratingHorizon: True
-#     Version: 2
+#     Version: 3
 #     Pi_2_Rotation: False
 
 GrSelfForce:
@@ -227,6 +227,10 @@ EventsAndTriggersAtIterations:
             - MMode
             - BoyerLindquistRadius
             - RadiallyCompressedCoordinates
+            - RawEffSource
+            - EF_EffSource
+            # - EF_Puncture
+            # - RawPuncture
           BlocksToObserve: All
           InterpolateToMesh: None
           ProjectToMesh: None

@@ -145,6 +145,23 @@ struct BoyerLindquistRadius : db::SimpleTag {
 };
 
 /*!
+ * \brief Raw effective source
+ *
+ * What effsource_calc_m computes
+ */
+struct RawEffSource : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
+/*!
+ * \brief Effective source in EF coordinate
+ *
+ * After transformation to EF coordinate
+ */
+struct EF_EffSource : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
+
+/*!
  * \brief Blocks in which we use null slicing (vtu-slicing).
  */
 template <size_t Dim>
@@ -160,6 +177,22 @@ struct NullSlicingBlocks : db::SimpleTag {
                                         domain_creator->block_names(),
                                         domain_creator->block_groups());
   }
+};
+
+/*!
+ * \brief Raw puncture field (interior singular field), read directly from
+ * the h5 file's 'Puncture' dataset in the BL frame, before transformation.
+ */
+struct RawPuncture : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
+};
+/*!
+ * \brief Puncture field in EF coordinate
+ *
+ * After transformation to EF coordinate
+ */
+struct EF_Puncture : db::SimpleTag {
+  using type = tnsr::aa<ComplexDataVector, 3>;
 };
 
 }  // namespace Tags

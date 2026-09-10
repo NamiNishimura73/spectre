@@ -72,7 +72,11 @@ struct Metavariables {
   using observe_fields = tmpl::append<
       typename system::primal_fields, typename system::background_fields,
       tmpl::list<GrSelfForce::Tags::SingularField,
-                 GrSelfForce::Tags::BoyerLindquistRadius>,
+                 GrSelfForce::Tags::BoyerLindquistRadius,
+                 GrSelfForce::Tags::RawEffSource,
+                 GrSelfForce::Tags::EF_EffSource,
+                 GrSelfForce::Tags::RawPuncture,
+                 GrSelfForce::Tags::EF_Puncture>,
       typename solver::observe_fields,
       tmpl::list<domain::Tags::Coordinates<volume_dim, Frame::Inertial>,
                  domain::Tags::RadiallyCompressedCoordinatesCompute<
