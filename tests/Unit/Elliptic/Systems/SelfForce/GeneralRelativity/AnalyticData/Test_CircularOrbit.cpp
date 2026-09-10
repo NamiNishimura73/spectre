@@ -57,7 +57,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
     CAPTURE(min(get<1>(x)));
     CAPTURE(max(get<1>(x)));
 
-    for (int m_mode_number = 1; m_mode_number < 3; ++m_mode_number) {
+    for (int m_mode_number = 0; m_mode_number < 3; ++m_mode_number) {
       CAPTURE(m_mode_number);
       const auto circular_orbit = CircularOrbit{1.,
                                                 0.9,

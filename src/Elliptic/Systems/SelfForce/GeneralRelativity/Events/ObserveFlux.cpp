@@ -50,7 +50,7 @@ std::pair<double, double> extract_flux(
   if (version_ == 3) {
     if (m_mode == 0) {
       n_psi7 = -2;
-      n_psi8 = 0;
+      n_psi8 = 2;
       n_psi9 = 2;
     } else if (m_mode == 1) {
       n_psi7 = -1;
