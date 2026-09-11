@@ -6,6 +6,7 @@
 #include <array>
 #include <complex>
 #include <cstddef>
+#include <iostream>
 #include <optional>
 
 #include "DataStructures/DataVector.hpp"
@@ -75,6 +76,112 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
       const auto& effective_source =
           get<::Tags::FixedSource<Tags::MMode>>(vars);
 
+      // DIAGNOSTIC: check whether the puncture (singular) field itself
+      // satisfies the static algebraic conditions pointwise:
+      //   h_vtheta = 0, h_thetaphi = 0,
+      //   h_vr + Ffac*h_vv = 0, h_rphi + Ffac*h_vphi = 0
+      // where Ffac = (r^2+a^2)/Delta. These need not hold for the puncture
+      // (it's a local expansion, not the full stationary solution), and in
+      // practice they don't -- see the printed ratios below. That's why the
+      // effective source for the reduced (static m=0) ABC can't just zero
+      // out the four "eliminated" rows; it has to absorb this residual.
+      if (reduced_ABC) {
+        const double a_spin = 0.9;
+        const double M_bh = 1.;
+        const auto& r_bl = get<0>(x);
+        const DataVector delta = r_bl * r_bl - 2. * M_bh * r_bl + a_spin * a_spin;
+        const DataVector Ffac = (r_bl * r_bl + a_spin * a_spin) / delta;
+        auto max_norm = [](const ComplexDataVector& v) {
+          double m = 0.;
+          for (size_t p = 0; p < v.size(); ++p) {
+            if (std::abs(v[p]) > m) m = std::abs(v[p]);
+          }
+          return m;
+        };
+        const auto& h_vv = singular_field[0];
+        const auto& h_vr = singular_field[1];
+        const auto& h_vth = singular_field[2];
+        const auto& h_vph = singular_field[3];
+        const auto& h_rph = singular_field[6];
+        const auto& h_thph = singular_field[8];
+        ComplexDataVector combo_vr(h_vv.size());
+        ComplexDataVector combo_rph(h_vv.size());
+        for (size_t p = 0; p < h_vv.size(); ++p) {
+          combo_vr[p] = h_vr[p] + Ffac[p] * h_vv[p];
+          combo_rph[p] = h_rph[p] + Ffac[p] * h_vph[p];
+        }
+        std::cout << "STATIC-CHECK |h_vtheta|=" << max_norm(h_vth)
+                  << " (vs |h_vv|=" << max_norm(h_vv) << ")\n";
+        std::cout << "STATIC-CHECK |h_thetaphi|=" << max_norm(h_thph)
+                  << " (vs |h_vphi|=" << max_norm(h_vph) << ")\n";
+        std::cout << "STATIC-CHECK |h_vr+Ffac*h_vv|=" << max_norm(combo_vr)
+                  << " (vs |h_vr|=" << max_norm(h_vr) << ")\n";
+        std::cout << "STATIC-CHECK |h_rphi+Ffac*h_vphi|=" << max_norm(combo_rph)
+                  << " (vs |h_rphi|=" << max_norm(h_rph) << ")\n";
+      }
+
+      // DIAGNOSTIC: independently re-derive the effective source that's
+      // consistent with the reduced ABC operator, WITHOUT relying on
+      // CircularOrbit's internal correction, and check it against the
+      // production `effective_source`:
+      //   kept rows (0,3,4,5,7,9):       S_eff = S_eff_orig + K_orig - K_red
+      //   eliminated rows (1,2,6,8):     S_eff = -K_red
+      // where K[psi] = beta*psi + gamma_rstar*dpsi/dr + gamma_theta*dpsi/dz
+      // (add_sources, i.e. no flux/divergence term -- that term is either
+      // identical between original/reduced (kept rows) or zero in the
+      // reduced system (eliminated rows), so it never needs to be
+      // recomputed). S_eff_orig and K_orig come from a second,
+      // reduced_ABC=false instance, so this check is fully independent of
+      // whatever CircularOrbit.cpp actually does internally.
+      if (reduced_ABC) {
+        const auto circular_orbit_orig = CircularOrbit{
+            1., 0.9, 20., m_mode_number, transitions, penetrating_horizon,
+            false, version};
+        const auto vars_orig =
+            circular_orbit_orig.variables(x, CircularOrbit::source_tags{});
+        const auto& effective_source_orig =
+            get<::Tags::FixedSource<Tags::MMode>>(vars_orig);
+        const auto background_orig =
+            circular_orbit_orig.variables(x, CircularOrbit::background_tags{});
+        const auto& beta_orig = get<Tags::Beta>(background_orig);
+        const auto& gamma_rstar_orig = get<Tags::GammaRstar>(background_orig);
+        const auto& gamma_theta_orig = get<Tags::GammaTheta>(background_orig);
+
+        tnsr::aa<ComplexDataVector, 3> K_orig{};
+        tnsr::aa<ComplexDataVector, 3> K_red{};
+        for (size_t i = 0; i < singular_field.size(); ++i) {
+          K_orig[i] = ComplexDataVector(singular_field[i].size(), 0.);
+          K_red[i] = ComplexDataVector(singular_field[i].size(), 0.);
+        }
+        GrSelfForce::add_sources(make_not_null(&K_orig), beta_orig,
+                                 gamma_rstar_orig, gamma_theta_orig,
+                                 singular_field, deriv_singular_field);
+        GrSelfForce::add_sources(make_not_null(&K_red), beta, gamma_rstar,
+                                 gamma_theta, singular_field,
+                                 deriv_singular_field);
+
+        for (size_t i = 0; i < effective_source.size(); ++i) {
+          const bool is_elim = (i == 1 or i == 2 or i == 6 or i == 8);
+          ComplexDataVector expected(K_red[i].size());
+          if (is_elim) {
+            expected = -K_red[i];
+          } else {
+            expected = effective_source_orig[i] + K_orig[i] - K_red[i];
+          }
+          const auto& actual = effective_source[i];
+          double max_err = 0., max_val = 0.;
+          for (size_t p = 0; p < actual.size(); ++p) {
+            const double err = std::abs(actual[p] - expected[p]);
+            if (err > max_err) max_err = err;
+            if (std::abs(expected[p]) > max_val) max_val = std::abs(expected[p]);
+          }
+          const double rel = max_val > 0. ? max_err / max_val : max_err;
+          std::cout << "CORRECTED-CHECK component i=" << i
+                    << " (elim=" << is_elim
+                    << ") production-vs-hand-derived rel=" << rel << "\n";
+        }
+      }
+
       // Check analytic derivative matches numeric derivative
       const auto numeric_deriv_singular_field =
           partial_derivative(singular_field, mesh, inv_jacobian);
@@ -131,6 +238,8 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
           if (std::abs(lhs[p]) > max_val) max_val = std::abs(lhs[p]);
         }
         const double rel = max_val > 0. ? max_err / max_val : max_err;
+        std::cout << "component i=" << i << " max_err=" << max_err
+                  << " max_val=" << max_val << " rel=" << rel << "\n";
         CAPTURE(i);
         CAPTURE(rel);
         CHECK(rel < 1e-6);
