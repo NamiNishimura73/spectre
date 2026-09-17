@@ -96,70 +96,109 @@ void lorenz_gauge_condition(
     const std::complex<double> r_i = r[i];
     const std::complex<double> cos_i = cos_theta[i];
     const std::complex<double> sin_i = sin_theta[i];
-    // const std::complex<double> cot_i = cot_theta[i];
-    // const std::complex<double> csc_i = csc_theta[i];
+    const std::complex<double> cot_i = cot_theta[i];
+    const std::complex<double> csc_i = csc_theta[i];
 
-    // version 2 * \sin \theta (to cancel out 0/sin_i at the pole)
-    get<0>(*result)[i] =
-        (cos_i * get<0, 2>(field)[i] + im_m * get<0, 3>(field)[i] +
-         (1.0 - im_m * r_i * omega) * get<0, 1>(field)[i] * sin_i +
-         get<0, 0>(field)[i] * sin_i -
-         sin_i * get<1, 0, 2>(deriv_field)[i] * sin_i +
-         (r_i - 2.0 * M) * get<0, 0, 1>(deriv_field)[i] * sin_i +
-         (1.0 + H[i]) * im_m * omega * r_i * get<0, 1>(field)[i] * sin_i +
-         r_i * get<0, 0, 0>(deriv_field)[i] * sin_i +
-         (1.0 + H[i]) * im_m * omega * r_i * r_i / (r_i - 2.0 * M) *
-             get<0, 0>(field)[i] * sin_i) /
-        (r_i * r_i);
 
-    // version 2 * \sin \theta (to cancel out 0/sin_i at the pole)
-    get<1>(*result)[i] =
-        (r_i * get<0, 1>(field)[i] * sin_i +
-         (1. + r_i - im_m * r_i * r_i * omega) * get<1, 1>(field)[i] * sin_i +
-         r_i * (cos_i * get<1, 2>(field)[i] + im_m * get<1, 3>(field)[i] -
-                get<2, 2>(field)[i] * sin_i - get<3, 3>(field)[i] * sin_i -
-                sin_i * get<1, 1, 2>(deriv_field)[i] * sin_i +
-                r_i * get<0, 0, 1>(deriv_field)[i] * sin_i +
-                (im_m * omega * (1. + H[i]) * r_i / (r_i - 2.)) * r_i *
-                    get<0, 1>(field)[i] * sin_i +
-                (-2. + r_i) * get<0, 1, 1>(deriv_field)[i] * sin_i +
-                (im_m * omega * (1. + H[i]) * r_i / (r_i - 2.)) * (-2. + r_i) *
-                    get<1, 1>(field)[i] * sin_i)) /
-        (r_i * r_i * r_i);
+    // version 3. This is for m = 0 
+    get<0>(*result)[i] = (
+        get<0, 0>(field)[i] + get<0, 1>(field)[i] -2.0* cos_i * get<0, 2>(field)[i]
+        +sin_i*sin_i * get<1, 0, 2>(deriv_field)[i] + r_i * get<0, 0, 0>(deriv_field)[i] + (r_i -2.0) * get<0, 0, 1>(deriv_field)[i]
+    ) / (r_i * r_i);
 
-    // version 2 *  \sin \theta (to cancel out 0/sin_i at the pole)
+    // version 3. This is for m = 0 
+    get<1>(*result)[i] = (
+        // psi4
+        get<1, 1>(field)[i] 
+        + r_i * ( get<0, 1>(field)[i]  + get<1, 1>(field)[i]  -2.0 * cos_i * get<1, 2>(field)[i]
+        -get<2, 2>(field)[i] -get<3, 3>(field)[i] + sin_i*sin_i * get<1, 1, 2>(deriv_field)[i]
+        + r_i * get<0, 0, 1>(deriv_field)[i] + (r_i - 2.0) * get<0, 1, 1>(deriv_field)[i]
+        )
+    ) / (r_i * r_i * r_i);
+
+
+    // version 3. This is for m = 0
     get<2>(*result)[i] =
-        (2. * r_i * get<0, 2>(field)[i] * sin_i +
-         (-2. + r_i * (2. - im_m * r_i * omega)) * get<1, 2>(field)[i] * sin_i +
-         r_i * (im_m * get<2, 3>(field)[i] +
-                cos_i * (get<2, 2>(field)[i] - get<3, 3>(field)[i]) -
-                sin_i * get<1, 2, 2>(deriv_field)[i] * sin_i +
-                r_i * get<0, 0, 2>(deriv_field)[i] * sin_i +
-                (im_m * omega * (1. + H[i]) * r_i / (r_i - 2.)) * r_i *
-                    get<0, 2>(field)[i] * sin_i +
-                (-2. + r_i) * get<0, 1, 2>(deriv_field)[i] * sin_i +
-                (im_m * omega * (1. + H[i]) * r_i / (r_i - 2.)) * (-2. + r_i) *
-                    get<1, 2>(field)[i] * sin_i
-
-                )
-
+        (2.0 *r_i * get<0, 2>(field)[i] + 2.0 *(r_i - 1.0)* get<1, 2>(field)[i]
+        - r_i *cot_i*csc_i* ( get<2, 2>(field)[i]  - get<3, 3>(field)[i]  )
+        + r_i * get<1, 2, 2>(deriv_field)[i] + r_i*r_i* get<0, 0, 2>(deriv_field)[i] + r_i*(r_i -2.0) * get<0, 1, 2>(deriv_field)[i]
              ) /
         (r_i * r_i);
 
-    // this is working KEEP THIS
+    // version 3. This is for m = 0
     get<3>(*result)[i] =
-        (r_i * cos_i * get<2, 3>(field)[i] + im_m * r_i * get<3, 3>(field)[i] +
-         2.0 * (r_i - M) * sin_i * get<1, 3>(field)[i] -
-         im_m * r_i * r_i * omega * sin_i * get<1, 3>(field)[i] +
-         2.0 * r_i * sin_i * get<0, 3>(field)[i] +
-         r_i * cos_i * get<2, 3>(field)[i] -
-         r_i * sin_i * sin_i * get<1, 2, 3>(deriv_field)[i] +
-         (r_i * r_i - 2.0 * r_i) * sin_i * get<0, 1, 3>(deriv_field)[i] +
-         (H[i] + 1.0) * im_m * omega * r_i * r_i * sin_i * get<1, 3>(field)[i] +
-         r_i * r_i * sin_i * get<0, 0, 3>(deriv_field)[i] +
-         (H[i] + 1.0) * im_m * omega * r_i * r_i * r_i * r_i /
-             (r_i * r_i - 2.0 * M * r_i) * sin_i * get<0, 3>(field)[i]) /
+        ( sin_i * sin_i* (
+            2.0 *r_i * get<0, 3>(field)[i] + 2.0 * (r_i -1.0)* get<1, 3>(field)[i]
+            + r_i * ( -4.0 * cos_i *  get<2, 3>(field)[i] +
+                sin_i * sin_i * get<1, 2, 3>(deriv_field)[i] + r_i * get<0, 0, 3>(deriv_field)[i] + (r_i - 2.0) * get<0, 1, 3>(deriv_field)[i]
+
+            )
+        )
+        ) /
         (r_i * r_i);
+
+
+    // // version 2 * \sin \theta (to cancel out 0/sin_i at the pole)
+    // get<0>(*result)[i] =
+    //     (cos_i * get<0, 2>(field)[i] + im_m * get<0, 3>(field)[i] +
+    //      (1.0 - im_m * r_i * omega) * get<0, 1>(field)[i] * sin_i +
+    //      get<0, 0>(field)[i] * sin_i -
+    //      sin_i * get<1, 0, 2>(deriv_field)[i] * sin_i +
+    //      (r_i - 2.0 * M) * get<0, 0, 1>(deriv_field)[i] * sin_i +
+    //      (1.0 + H[i]) * im_m * omega * r_i * get<0, 1>(field)[i] * sin_i +
+    //      r_i * get<0, 0, 0>(deriv_field)[i] * sin_i +
+    //      (1.0 + H[i]) * im_m * omega * r_i * r_i / (r_i - 2.0 * M) *
+    //          get<0, 0>(field)[i] * sin_i) /
+    //     (r_i * r_i);
+
+    // // version 2 * \sin \theta (to cancel out 0/sin_i at the pole)
+    // get<1>(*result)[i] =
+    //     (r_i * get<0, 1>(field)[i] * sin_i +
+    //      (1. + r_i - im_m * r_i * r_i * omega) * get<1, 1>(field)[i] * sin_i +
+    //      r_i * (cos_i * get<1, 2>(field)[i] + im_m * get<1, 3>(field)[i] -
+    //             get<2, 2>(field)[i] * sin_i - get<3, 3>(field)[i] * sin_i -
+    //             sin_i * get<1, 1, 2>(deriv_field)[i] * sin_i +
+    //             r_i * get<0, 0, 1>(deriv_field)[i] * sin_i +
+    //             (im_m * omega * (1. + H[i]) * r_i / (r_i - 2.)) * r_i *
+    //                 get<0, 1>(field)[i] * sin_i +
+    //             (-2. + r_i) * get<0, 1, 1>(deriv_field)[i] * sin_i +
+    //             (im_m * omega * (1. + H[i]) * r_i / (r_i - 2.)) * (-2. + r_i) *
+    //                 get<1, 1>(field)[i] * sin_i)) /
+    //     (r_i * r_i * r_i);
+
+    // // version 2 *  \sin \theta (to cancel out 0/sin_i at the pole)
+    // get<2>(*result)[i] =
+    //     (2. * r_i * get<0, 2>(field)[i] * sin_i +
+    //      (-2. + r_i * (2. - im_m * r_i * omega)) * get<1, 2>(field)[i] * sin_i +
+    //      r_i * (im_m * get<2, 3>(field)[i] +
+    //             cos_i * (get<2, 2>(field)[i] - get<3, 3>(field)[i]) -
+    //             sin_i * get<1, 2, 2>(deriv_field)[i] * sin_i +
+    //             r_i * get<0, 0, 2>(deriv_field)[i] * sin_i +
+    //             (im_m * omega * (1. + H[i]) * r_i / (r_i - 2.)) * r_i *
+    //                 get<0, 2>(field)[i] * sin_i +
+    //             (-2. + r_i) * get<0, 1, 2>(deriv_field)[i] * sin_i +
+    //             (im_m * omega * (1. + H[i]) * r_i / (r_i - 2.)) * (-2. + r_i) *
+    //                 get<1, 2>(field)[i] * sin_i
+
+    //             )
+
+    //          ) /
+    //     (r_i * r_i);
+
+    // // this is working KEEP THIS
+    // get<3>(*result)[i] =
+    //     (r_i * cos_i * get<2, 3>(field)[i] + im_m * r_i * get<3, 3>(field)[i] +
+    //      2.0 * (r_i - M) * sin_i * get<1, 3>(field)[i] -
+    //      im_m * r_i * r_i * omega * sin_i * get<1, 3>(field)[i] +
+    //      2.0 * r_i * sin_i * get<0, 3>(field)[i] +
+    //      r_i * cos_i * get<2, 3>(field)[i] -
+    //      r_i * sin_i * sin_i * get<1, 2, 3>(deriv_field)[i] +
+    //      (r_i * r_i - 2.0 * r_i) * sin_i * get<0, 1, 3>(deriv_field)[i] +
+    //      (H[i] + 1.0) * im_m * omega * r_i * r_i * sin_i * get<1, 3>(field)[i] +
+    //      r_i * r_i * sin_i * get<0, 0, 3>(deriv_field)[i] +
+    //      (H[i] + 1.0) * im_m * omega * r_i * r_i * r_i * r_i /
+    //          (r_i * r_i - 2.0 * M * r_i) * sin_i * get<0, 3>(field)[i]) /
+    //     (r_i * r_i);
   }
 }
 
