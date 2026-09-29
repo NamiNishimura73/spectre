@@ -671,7 +671,7 @@ void effsource_calc_m_series(int m, struct coordinate * x, double *src)
   const double sinmph = sin(m*xp.phi);
 
 	src[0] = (srcO0 + srcO1 + srcO2)*cosmph;
-  src[1] = (srcO0 + srcO1 + srcO2)*sinmph;
+  src[1] = - (srcO0 + srcO1 + srcO2)*sinmph;
 
 	return;
 }

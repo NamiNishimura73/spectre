@@ -117,8 +117,8 @@ CircularOrbit::variables(
     // NOLINTNEXTLINE
     r.set_data_ref(const_cast<DataVector*>(&r_star_or_r));
     r_minus_r_plus = r - r_plus;
-    r_star = gr::tortoise_radius_from_boyer_lindquist_minus_r_plus(
-        r_minus_r_plus, M, black_hole_spin_);
+    // r_star = gr::tortoise_radius_from_boyer_lindquist_minus_r_plus(
+    //     r_minus_r_plus, M, black_hole_spin_);
   } else {
     // NOLINTNEXTLINE
     r_star.set_data_ref(const_cast<DataVector*>(&r_star_or_r));
@@ -264,8 +264,8 @@ CircularOrbit::variables(
     // NOLINTNEXTLINE
     r.set_data_ref(const_cast<DataVector*>(&r_star_or_r));
     r_minus_r_plus = r - r_plus;
-    r_star = gr::tortoise_radius_from_boyer_lindquist_minus_r_plus(
-        r_minus_r_plus, M, black_hole_spin_);
+    // r_star = gr::tortoise_radius_from_boyer_lindquist_minus_r_plus(
+    //     r_minus_r_plus, M, black_hole_spin_);
   } else {
     // NOLINTNEXTLINE
     r_star.set_data_ref(const_cast<DataVector*>(&r_star_or_r));
@@ -334,25 +334,57 @@ CircularOrbit::variables(
     // const double dr_zero = 0.04;
     // const double dth_full = 0.007;
     // const double dth_zero = 0.02;
+    // ==== without series expanded effsource
+    // const double dr_full = 0.0;
+    // const double dr_zero = 0.0;
+    // const double dth_full = 0.0;
+    // const double dth_zero = 0.0;
     for (size_t i = 0; i < num_points; ++i) {
       x_i.t = 0;
       x_i.r = r[i];
       x_i.theta = acos(cos_theta[i]);
       x_i.phi = 0;
-      effsource_calc_m(m_mode_number_, &x_i, PhiS.data(), dPhiS_dx.data(),
-                       d2PhiS_dx2.data(), src.data());
+      // effsource_calc_m(m_mode_number_, &x_i, PhiS.data(), dPhiS_dx.data(),
+      //                  d2PhiS_dx2.data(), src.data());
+      // // =======================================================================
+      // // Near the particle, blend in the m-series expansion. PhiS / dPhiS_dx are
+      // // always kept from effsource_calc_m above.
+      // const double dr = fabs(x_i.r - orbital_radius_);
+      // const double dth = fabs(x_i.theta - M_PI_2);
+      // if (dr < dr_zero and dth < dth_zero) {
+      //   const double w = (1.0 - smooth_ramp(dr, dr_full, dr_zero)) *
+      //                    (1.0 - smooth_ramp(dth, dth_full, dth_zero));
+      //   std::array<double, 2> src_series{};
+      //   effsource_calc_m_series(m_mode_number_, &x_i, src_series.data());
+      //   src[0] = w * src_series[0] + (1.0 - w) * src[0];
+      //   src[1] = w * src_series[1] + (1.0 - w) * src[1];
+      // }
+      // // =======================================================================
+      // get(effective_source)[i] = src[0] + std::complex<double>(0., 1.) * src[1];
       // =======================================================================
-      // Near the particle, blend in the m-series expansion. PhiS / dPhiS_dx are
-      // always kept from effsource_calc_m above.
       const double dr = fabs(x_i.r - orbital_radius_);
       const double dth = fabs(x_i.theta - M_PI_2);
-      if (dr < dr_zero and dth < dth_zero) {
-        const double w = (1.0 - smooth_ramp(dr, dr_full, dr_zero)) *
-                         (1.0 - smooth_ramp(dth, dth_full, dth_zero));
-        std::array<double, 2> src_series{};
-        effsource_calc_m_series(m_mode_number_, &x_i, src_series.data());
-        src[0] = w * src_series[0] + (1.0 - w) * src[0];
-        src[1] = w * src_series[1] + (1.0 - w) * src[1];
+      // effsource_calc_m cannot be evaluated on the worldline (it hangs /
+      // raises an FPE). Use the series there; PhiS and its derivatives are
+      // singular at the particle and set to zero.
+      if (dr < 1.e-12 and dth < 1.e-12) {
+        PhiS.fill(0.);
+        dPhiS_dx.fill(0.);
+        d2PhiS_dx2.fill(0.);
+        effsource_calc_m_series(m_mode_number_, &x_i, src.data());
+      } else {
+        effsource_calc_m(m_mode_number_, &x_i, PhiS.data(), dPhiS_dx.data(),
+                         d2PhiS_dx2.data(), src.data());
+        // Near the particle, blend in the m-series expansion. PhiS / dPhiS_dx
+        // are always kept from effsource_calc_m above.
+        if (dr < dr_zero and dth < dth_zero) {
+          const double w = (1.0 - smooth_ramp(dr, dr_full, dr_zero)) *
+                           (1.0 - smooth_ramp(dth, dth_full, dth_zero));
+          std::array<double, 2> src_series{};
+          effsource_calc_m_series(m_mode_number_, &x_i, src_series.data());
+          src[0] = w * src_series[0] + (1.0 - w) * src[0];
+          src[1] = w * src_series[1] + (1.0 - w) * src[1];
+        }
       }
       // =======================================================================
       get(effective_source)[i] = src[0] + std::complex<double>(0., 1.) * src[1];
