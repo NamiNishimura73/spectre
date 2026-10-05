@@ -10,6 +10,7 @@ spectre_target_sources(
   PRIVATE
   RefineAtBoundary.cpp
   RefineAtPuncture.cpp
+  RefineAtPunctureRadius.cpp
   )
 
 spectre_target_headers(
@@ -18,6 +19,7 @@ spectre_target_headers(
   HEADERS
   RefineAtBoundary.hpp
   RefineAtPuncture.hpp
+  RefineAtPunctureRadius.hpp
   )
 
 target_link_libraries(

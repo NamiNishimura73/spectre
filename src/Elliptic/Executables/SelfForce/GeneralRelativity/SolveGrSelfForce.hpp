@@ -16,6 +16,7 @@
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Actions/InitializeEffectiveSource.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/AmrCriteria/RefineAtBoundary.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/AmrCriteria/RefineAtPuncture.hpp"
+#include "Elliptic/Systems/SelfForce/GeneralRelativity/AmrCriteria/RefineAtPunctureRadius.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/AnalyticData/CircularOrbit.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/AnalyticData/NumericData.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/BoundaryConditions/None.hpp"
@@ -128,6 +129,7 @@ struct Metavariables {
                 ::amr::Criteria::standard_criteria<
                     volume_dim, typename system::primal_fields>,
                 GrSelfForce::AmrCriteria::RefineAtPuncture,
+                GrSelfForce::AmrCriteria::RefineAtPunctureRadius,
                 GrSelfForce::AmrCriteria::RefineAtBoundary<volume_dim, 0>,
                 GrSelfForce::AmrCriteria::RefineAtBoundary<volume_dim, 1>>>,
         tmpl::pair<

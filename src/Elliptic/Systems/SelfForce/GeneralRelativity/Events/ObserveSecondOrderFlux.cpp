@@ -60,12 +60,21 @@ std::pair<double, double> extract_second_order_flux(
   const size_t num_face_pts = get<0>(face_coords).size();
   DataVector integrand_multiplier{num_face_pts};
 
+  // const auto& first_order_interpolator =
+  //     get_first_order_interpolator(first_order_data_directory);
+  // std::vector<DataVector> interpolated;
+  // first_order_interpolator.interpolate_to_points(make_not_null(&interpolated),
+  //                                                face_coords);
   const auto& first_order_interpolator =
       get_first_order_interpolator(first_order_data_directory);
+  // Quick test: evaluate first-order field at a larger radius (same angles)
+  tnsr::I<DataVector, 2, Frame::Inertial> first_order_coords = face_coords;
+  get<0>(first_order_coords) = 0.999 * 1.e8;
   std::vector<DataVector> interpolated;
   first_order_interpolator.interpolate_to_points(make_not_null(&interpolated),
-                                                 face_coords);
+                                                 first_order_coords);
 
+                                                 
   const ComplexDataVector psi7_1st =
       interpolated[0] + std::complex<double>(0., 1.) * interpolated[1];
   const ComplexDataVector psi8_1st =
