@@ -16,11 +16,11 @@
 namespace GrSelfForce {
 
 namespace {
-// Static m=0 reduction: vr, vtheta, rphi, thetaphi are algebraically
+// Static m=0 reduction: vr, vtheta, vphi, thetaphi are algebraically
 // constrained via beta (see CircularOrbit ABC), so they carry no flux.
 constexpr bool is_constrained_component(const size_t a, const size_t b) {
   return (a == 1 and b == 0) or (a == 2 and b == 0) or
-         (a == 3 and b == 1) or (a == 3 and b == 2);
+         (a == 3 and b == 0) or (a == 3 and b == 2);
 }
 }  // namespace
 

@@ -39,6 +39,12 @@ void Sommerfeld::apply(
     const tnsr::I<ComplexDataVector, 2>& alpha,
     const tnsr::aaBB<ComplexDataVector, 3>& beta,
     const tnsr::aaBB<ComplexDataVector, 3>& gamma_rstar) const {
+  // TEMPORARY test: Dirichlet psi_vphi = 0 at the inner boundary (r = 2.01).
+  // Everything else is left as interior data, same as the None BC.
+  if (order_ == 0) {
+    get<0, 3>(*field) = std::complex<double>(0., 0.);
+    return;
+  }
   if (hyperboloidal_slicing_) {
     using TensorStruct = std::decay_t<decltype(*field)>::structure;
     // For the static (m=0) mode, component (0,1) is Dirichlet-type (see

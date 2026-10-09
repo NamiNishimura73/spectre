@@ -124,8 +124,8 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
       // consistent with the reduced ABC operator, WITHOUT relying on
       // CircularOrbit's internal correction, and check it against the
       // production `effective_source`:
-      //   kept rows (0,3,4,5,7,9):       S_eff = S_eff_orig + K_orig - K_red
-      //   eliminated rows (1,2,6,8):     S_eff = -K_red
+      //   kept rows (0,4,5,6,7,9):       S_eff = S_eff_orig + K_orig - K_red
+      //   eliminated rows (1,2,3,8):     S_eff = -K_red
       // where K[psi] = beta*psi + gamma_rstar*dpsi/dr + gamma_theta*dpsi/dz
       // (add_sources, i.e. no flux/divergence term -- that term is either
       // identical between original/reduced (kept rows) or zero in the
@@ -161,7 +161,7 @@ SPECTRE_TEST_CASE("Unit.PointwiseFunctions.GrSelfForce.CircularOrbit",
                                  deriv_singular_field);
 
         for (size_t i = 0; i < effective_source.size(); ++i) {
-          const bool is_elim = (i == 1 or i == 2 or i == 6 or i == 8);
+          const bool is_elim = (i == 1 or i == 2 or i == 3 or i == 8);
           ComplexDataVector expected(K_red[i].size());
           if (is_elim) {
             expected = -K_red[i];

@@ -521,9 +521,9 @@ CircularOrbit::variables(
             // the reduced operator is:
             //   kept rows:       S_eff += K_orig[psi^P] - K_reduced[psi^P]
             //   eliminated rows: S_eff  = -K_reduced[psi^P]
-            // where "kept" = {vv,vphi,rr,rtheta,thetatheta,phiphi} (storage
-            // indices 0,3,4,5,7,9) and "eliminated" =
-            // {vr,vtheta,rphi,thetaphi} (storage indices 1,2,6,8). See
+            // where "kept" = {vv,rphi,rr,rtheta,thetatheta,phiphi} (storage
+            // indices 0,4,5,6,7,9) and "eliminated" =
+            // {vr,vtheta,vphi,thetaphi} (storage indices 1,2,3,8). See
             // Reformulate_ABC_m0_fixed_Static_Condition.m for the
             // derivation of the reduced matrices.
             std::array<std::array<double, 10>, 10> Areal_orig{};
@@ -593,7 +593,7 @@ CircularOrbit::variables(
                              C_r * psi[j];
               }
               const bool is_eliminated =
-                  row == 1 or row == 2 or row == 6 or row == 8;
+                  row == 1 or row == 2 or row == 3 or row == 8;
               std::complex<double> src_row =
                   src_conv_re[row] + imag_unit * src_conv_im[row];
               if (is_eliminated) {
