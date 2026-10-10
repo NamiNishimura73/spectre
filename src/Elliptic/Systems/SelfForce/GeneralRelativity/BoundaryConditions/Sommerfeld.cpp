@@ -102,7 +102,7 @@ void Sommerfeld::apply(
       //     "field(0,0) = %s\n  field(0,1) before override = %s\n",
       //     alpha.get(0), get<0, 0>(*field), get<0, 1>(*field));
       // (r^2+a^2)/Delta * psi_0/r + psi_1/r = 0 with alpha = Delta/(r^2+a^2).
-      get<0, 1>(*field) = -get<0, 0>(*field) / alpha.get(0);
+      // get<0, 1>(*field) = -get<0, 0>(*field) / alpha.get(0);
       // Parallel::printf("  field(0,1) after override = %s\n",
       //                  get<0, 1>(*field));
     }
