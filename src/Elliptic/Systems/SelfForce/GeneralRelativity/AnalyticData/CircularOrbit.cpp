@@ -57,6 +57,7 @@ CircularOrbit::CircularOrbit(const double black_hole_mass,
                                  hyperboloidal_slicing_transitions,
                              const bool penetrating_horizon,
                              const bool compactification,
+                             const bool reduced_ABC,
                              const std::optional<int> version)
     : black_hole_mass_(black_hole_mass),
       black_hole_spin_(black_hole_spin),
@@ -65,6 +66,7 @@ CircularOrbit::CircularOrbit(const double black_hole_mass,
       hyperboloidal_slicing_transitions_(hyperboloidal_slicing_transitions),
       penetrating_horizon_(penetrating_horizon),
       compactification_(compactification),
+      reduced_ABC_(reduced_ABC),
       version_(version.value_or(0)) {
   if (penetrating_horizon_ and (version_ != 2 and version_ != 3)) {
     ERROR("When PenetratingHorizon is true, Version must be 2 or 3, but got "
@@ -225,37 +227,66 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
                             cos_theta[i], H[i], dH[i], Cimag_vr);
       } else if (version_ == 3) {
         if (compactification_) {
+          if (reduced_ABC_){
+          detail::getAreal_vrz_reduced_comp(m_mode_number_, a, m_mode_number_ * omega, inv_r[i],
+                              cos_theta[i], H[i], dH[i], Areal_vr);
+          detail::getBreal_vrz_reduced_comp(m_mode_number_, a, m_mode_number_ * omega, inv_r[i],
+                              cos_theta[i], H[i], dH[i], Breal_vr);
+          detail::getCreal_vrz_reduced_comp(m_mode_number_, a, m_mode_number_ * omega, inv_r[i],
+                              cos_theta[i], H[i], dH[i], Creal_vr);
+          detail::getCimag_vrz_reduced_comp(m_mode_number_, a, m_mode_number_ * omega, inv_r[i],
+                              cos_theta[i], H[i], dH[i], Cimag_vr);
+          } else{
           detail::getAreal_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
                                     inv_r[i], cos_theta[i], H[i], dH[i],
                                     Areal_vr);
-          detail::getAimag_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
-                                    inv_r[i], cos_theta[i], H[i], dH[i],
-                                    Aimag_vr);
           detail::getBreal_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
                                     inv_r[i], cos_theta[i], H[i], dH[i],
                                     Breal_vr);
-          detail::getBimag_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
-                                    inv_r[i], cos_theta[i], H[i], dH[i],
-                                    Bimag_vr);
           detail::getCreal_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
                                     inv_r[i], cos_theta[i], H[i], dH[i],
                                     Creal_vr);
           detail::getCimag_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
                                     inv_r[i], cos_theta[i], H[i], dH[i],
                                     Cimag_vr);
+          }
+
+          detail::getAimag_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
+                                    inv_r[i], cos_theta[i], H[i], dH[i],
+                                    Aimag_vr);
+
+          detail::getBimag_vrz_comp(m_mode_number_, a, m_mode_number_ * omega,
+                                    inv_r[i], cos_theta[i], H[i], dH[i],
+                                    Bimag_vr);
+
         } else {
+          if (reduced_ABC_){
+          detail::getAreal_vrz_reduced(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                              cos_theta[i], H[i], dH[i], Areal_vr);
+          detail::getBreal_vrz_reduced(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                              cos_theta[i], H[i], dH[i], Breal_vr);
+          detail::getCreal_vrz_reduced(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                              cos_theta[i], H[i], dH[i], Creal_vr);
+          detail::getCimag_vrz_reduced(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                              cos_theta[i], H[i], dH[i], Cimag_vr);
+
+          } else {
           detail::getAreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
                                cos_theta[i], H[i], dH[i], Areal_vr);
-          detail::getAimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                               cos_theta[i], H[i], dH[i], Aimag_vr);
           detail::getBreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
                                cos_theta[i], H[i], dH[i], Breal_vr);
-          detail::getBimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
-                               cos_theta[i], H[i], dH[i], Bimag_vr);
           detail::getCreal_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
                                cos_theta[i], H[i], dH[i], Creal_vr);
           detail::getCimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
                                cos_theta[i], H[i], dH[i], Cimag_vr);
+
+          }
+          detail::getAimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                               cos_theta[i], H[i], dH[i], Aimag_vr);
+
+          detail::getBimag_vrz(m_mode_number_, a, m_mode_number_ * omega, r[i],
+                               cos_theta[i], H[i], dH[i], Bimag_vr);
+
         }
       }
       // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -545,6 +576,98 @@ CircularOrbit::variables(
           detail::convert_effsource_Seff_vrz(m_mode_number_, a, r[i],
                                              theta_or_cos_theta[i], src_re,
                                              src_im, src_conv_re, src_conv_im);
+          if (reduced_ABC_ and m_mode_number_ == 0) {
+            // The reduced (static m=0) ABC operator differs from the
+            // original operator only in the algebraic (non-flux) part
+            // K[psi] = beta.psi + gamma_rstar.dpsi/dr + gamma_theta.dpsi/dz
+            // (the flux/divergence term is unaffected for the kept rows,
+            // and is identically zero in the reduced system for the
+            // eliminated rows). So the effective source consistent with
+            // the reduced operator is:
+            //   kept rows:       S_eff += K_orig[psi^P] - K_reduced[psi^P]
+            //   eliminated rows: S_eff  = -K_reduced[psi^P]
+            // where "kept" = {vv,rphi,rr,rtheta,thetatheta,phiphi} (storage
+            // indices 0,4,5,6,7,9) and "eliminated" =
+            // {vr,vtheta,vphi,thetaphi} (storage indices 1,2,3,8).
+            std::array<std::array<double, 10>, 10> Areal_orig{};
+            std::array<std::array<double, 10>, 10> Aimag_vrz{};
+            std::array<std::array<double, 10>, 10> Breal_orig{};
+            std::array<std::array<double, 10>, 10> Bimag_vrz{};
+            std::array<std::array<double, 10>, 10> Creal_orig{};
+            std::array<std::array<double, 10>, 10> Cimag_orig{};
+            std::array<std::array<double, 10>, 10> Areal_red{};
+            std::array<std::array<double, 10>, 10> Breal_red{};
+            std::array<std::array<double, 10>, 10> Creal_red{};
+            std::array<std::array<double, 10>, 10> Cimag_red{};
+            detail::getAreal_vrz(m_mode_number_, a, 0., r[i],
+                                 theta_or_cos_theta[i], 0., 0., Areal_orig);
+            detail::getAimag_vrz(m_mode_number_, a, 0., r[i],
+                                 theta_or_cos_theta[i], 0., 0., Aimag_vrz);
+            detail::getBreal_vrz(m_mode_number_, a, 0., r[i],
+                                 theta_or_cos_theta[i], 0., 0., Breal_orig);
+            detail::getBimag_vrz(m_mode_number_, a, 0., r[i],
+                                 theta_or_cos_theta[i], 0., 0., Bimag_vrz);
+            detail::getCreal_vrz(m_mode_number_, a, 0., r[i],
+                                 theta_or_cos_theta[i], 0., 0., Creal_orig);
+            detail::getCimag_vrz(m_mode_number_, a, 0., r[i],
+                                 theta_or_cos_theta[i], 0., 0., Cimag_orig);
+            detail::getAreal_vrz_reduced(m_mode_number_, a, 0., r[i],
+                                         theta_or_cos_theta[i], 0., 0.,
+                                         Areal_red);
+            detail::getBreal_vrz_reduced(m_mode_number_, a, 0., r[i],
+                                         theta_or_cos_theta[i], 0., 0.,
+                                         Breal_red);
+            detail::getCreal_vrz_reduced(m_mode_number_, a, 0., r[i],
+                                         theta_or_cos_theta[i], 0., 0.,
+                                         Creal_red);
+            detail::getCimag_vrz_reduced(m_mode_number_, a, 0., r[i],
+                                         theta_or_cos_theta[i], 0., 0.,
+                                         Cimag_red);
+            const std::complex<double> imag_unit(0., 1.);
+            std::array<std::complex<double>, 10> psi{};
+            std::array<std::complex<double>, 10> dpsi_dr{};
+            std::array<std::complex<double>, 10> dpsi_dz{};
+            for (size_t j = 0; j < 10; ++j) {
+              psi[j] = hS_conv_re[j] + imag_unit * hS_conv_im[j];
+              dpsi_dr[j] = dhS_drstar_or_dr_re_conv[j] +
+                           imag_unit * dhS_drstar_or_dr_im_conv[j];
+              dpsi_dz[j] = dhS_dth_or_dcos_re_conv[j] +
+                           imag_unit * dhS_dth_or_dcos_im_conv[j];
+            }
+            for (size_t row = 0; row < 10; ++row) {
+              std::complex<double> K_orig_row = 0.;
+              std::complex<double> K_red_row = 0.;
+              for (size_t j = 0; j < 10; ++j) {
+                const std::complex<double> A_o =
+                    Areal_orig[row][j] + imag_unit * Aimag_vrz[row][j];
+                const std::complex<double> B_o =
+                    Breal_orig[row][j] + imag_unit * Bimag_vrz[row][j];
+                const std::complex<double> C_o =
+                    Creal_orig[row][j] + imag_unit * Cimag_orig[row][j];
+                K_orig_row += A_o * dpsi_dr[j] + B_o * dpsi_dz[j] +
+                              C_o * psi[j];
+                const std::complex<double> A_r =
+                    Areal_red[row][j] + imag_unit * Aimag_vrz[row][j];
+                const std::complex<double> B_r =
+                    Breal_red[row][j] + imag_unit * Bimag_vrz[row][j];
+                const std::complex<double> C_r =
+                    Creal_red[row][j] + imag_unit * Cimag_red[row][j];
+                K_red_row += A_r * dpsi_dr[j] + B_r * dpsi_dz[j] +
+                             C_r * psi[j];
+              }
+              const bool is_eliminated =
+                  row == 1 or row == 2 or row == 3 or row == 8;
+              std::complex<double> src_row =
+                  src_conv_re[row] + imag_unit * src_conv_im[row];
+              if (is_eliminated) {
+                src_row = -K_red_row;
+              } else {
+                src_row += K_orig_row - K_red_row;
+              }
+              src_conv_re[row] = src_row.real();
+              src_conv_im[row] = src_row.imag();
+            }
+          }
         }
         // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
         for (size_t a1 = 0; a1 < 4; ++a1) {
@@ -641,6 +764,7 @@ void CircularOrbit::pup(PUP::er& p) {
   p | hyperboloidal_slicing_transitions_;
   p | penetrating_horizon_;
   p | compactification_;
+  p | reduced_ABC_;
   p | version_;
 }
 
@@ -653,6 +777,7 @@ bool operator==(const CircularOrbit& lhs, const CircularOrbit& rhs) {
              rhs.hyperboloidal_slicing_transitions_ and
          lhs.penetrating_horizon_ == rhs.penetrating_horizon_ and
          lhs.compactification_ == rhs.compactification_ and
+         lhs.reduced_ABC_ == rhs.reduced_ABC_ and
          lhs.version_ == rhs.version_;
 }
 

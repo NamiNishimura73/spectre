@@ -92,7 +92,11 @@ class CircularOrbit : public elliptic::analytic_data::Background,
     using type = bool;
     static constexpr type default_value = false;
   };
-
+  struct Reduced_ABC {
+    static constexpr Options::String help =
+        "If 'True', use Reduced ABC matrix everywhere ";
+    using type = bool;
+  };
   struct Version {
     static constexpr Options::String help =
         "Version of the GrSelfForce PDE coefficients (2 or 3). "
@@ -101,7 +105,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   };
   using options = tmpl::list<BlackHoleMass, BlackHoleSpin, OrbitalRadius,
                              MModeNumber, HyperboloidalSlicingTransitions,
-                             PenetratingHorizon, Compactification, Version>;
+                             PenetratingHorizon, Compactification, Reduced_ABC, Version>;
   static constexpr Options::String help =
       "Quasicircular orbit of a point mass in Kerr spacetime";
 
@@ -118,6 +122,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
                     hyperboloidal_slicing_transitions,
                 bool penetrating_horizon,
                 bool compactification,
+                bool reduced_ABC = false,
                 std::optional<int> version = std::nullopt);
 
   explicit CircularOrbit(CkMigrateMessage* m);
@@ -136,6 +141,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   }
   bool penetrating_horizon() const { return penetrating_horizon_; }
   bool compactification() const { return compactification_; }
+  bool reduced_ABC() const { return reduced_ABC_; }
   int version() const { return version_; }
   using background_tags =
       tmpl::list<Tags::Alpha, Tags::Beta, Tags::GammaRstar, Tags::GammaTheta>;
@@ -179,6 +185,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   std::optional<std::array<double, 4>> hyperboloidal_slicing_transitions_{};
   bool penetrating_horizon_{false};
   bool compactification_{false};
+  bool reduced_ABC_{false};
   int version_{};
 };
 

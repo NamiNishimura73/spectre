@@ -89,4 +89,22 @@ void getCreal_vrz_comp(int m, double a, double om, double la, double z,
 void getCimag_vrz_comp(int m, double a, double om, double la, double z,
                        double H, double dHdr,
                        std::array<std::array<double, 10>, 10>& Cimag);
+void getAreal_vrz_reduced(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Areal);
+void getBreal_vrz_reduced(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Breal);
+void getCreal_vrz_reduced(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Creal);
+void getCimag_vrz_reduced(int m, double a, double om, double r, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Cimag);            
+
+void getAreal_vrz_reduced_comp(int m, double a, double om, double la, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Areal);
+void getBreal_vrz_reduced_comp(int m, double a, double om, double la, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Breal);
+void getCreal_vrz_reduced_comp(int m, double a, double om, double la, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Creal);
+void getCimag_vrz_reduced_comp(int m, double a, double om, double la, double z, double H,
+                 double dHdr, std::array<std::array<double, 10>, 10>& Cimag); 
+
 }  // namespace GrSelfForce::detail

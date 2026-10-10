@@ -16,13 +16,14 @@ Background: &background
     BlackHoleSpin: &bh_spin 0.6
     OrbitalRadius: &orbital_radius 8.
     MModeNumber: &m_mode_number 2
-    HyperboloidalSlicingTransitions:
-      - &v_to_t_transition 5
+    HyperboloidalSlicingTransitions: 
+      - &v_to_t_transition 4
       - *v_to_t_transition
       - &t_to_u_transition 15
       - *t_to_u_transition
     PenetratingHorizon: True
-    Compactification: False
+    Compactification: True
+    Reduced_ABC: False # True for m = 0
     Version: 3
 
 # Background: &background
@@ -38,6 +39,7 @@ Background: &background
 #       - &t_to_u_transition 15
 #       - *t_to_u_transition
 #     PenetratingHorizon: True
+    # Reduced_ABC: False # True for m = 0
 #     Version: 3
 #     Pi_2_Rotation: False
 
@@ -63,15 +65,15 @@ DomainCreator:
         - 6.
         - &worldtube_right 10.
         - *t_to_u_transition
-        - &outer_radius 1e4
+        - &outer_radius 30 # 2 * r_u 
       # cos(theta)
       - - -1.
         - -0.5
         - 0.5
         - 1
     Distributions:
-      # r_
-      - [Linear, Linear, Linear, Linear, &outer_shell_distribution Inverse]
+      # r
+      - [Linear, Linear, Linear, Linear, Linear]
       # cos(theta)
       - [Linear, Linear, Linear]
     SingularityPositions:
@@ -87,8 +89,8 @@ DomainCreator:
       # bottom row
       - LowerCornerIndex: [0, 0] # bottom left
         UpperCornerIndex: [1, 1]
-        Refinement: [ 0, 0 ] # CAUTION!! for m =1, use [1,0]
-      - LowerCornerIndex: [1, 0] # bottom transition left
+        Refinement: [ 1, 0 ]
+      - LowerCornerIndex: [1, 0] 
         UpperCornerIndex: [2, 1]
         Refinement: [ 0, 1 ]
       - LowerCornerIndex: [2, 0] # bottom middle
@@ -103,7 +105,7 @@ DomainCreator:
       # middle row
       - LowerCornerIndex: [0, 1] # middle left
         UpperCornerIndex: [1, 2]
-        Refinement: [ 0, 0 ] # CAUTION!! for m =1, use [1,0]
+        Refinement: [ 1, 0 ]
       - LowerCornerIndex: [1, 1] # middle transition left
         UpperCornerIndex: [2, 2]
         Refinement: [ 0, 1 ]
@@ -119,7 +121,7 @@ DomainCreator:
       # top row
       - LowerCornerIndex: [0, 2] # top left
         UpperCornerIndex: [1, 3]
-        Refinement: [ 0, 0 ] # CAUTION!! for m =1, use [1,0]
+        Refinement: [ 1, 0 ]
       - LowerCornerIndex: [1, 2] # top transition left
         UpperCornerIndex: [2, 3]
         Refinement: [ 0, 1 ]
@@ -135,14 +137,7 @@ DomainCreator:
 
     BoundaryConditions:
       - Lower: None
-        Upper:
-          Sommerfeld:
-            BlackHoleMass: *bh_mass
-            BlackHoleSpin: *bh_spin
-            OrbitalRadius: *orbital_radius
-            MModeNumber: *m_mode_number
-            HyperboloidalSlicing: True
-            Order: 1
+        Upper: None
       # Angular boundary conditions
       - None
 
@@ -151,7 +146,8 @@ Amr:
   Criteria:
     - IncreaseResolution
     - RefineAtPuncture
-    - RefineAtBoundaryY
+    # - RefineAtBoundaryY
+    # - RefineAtBoundaryX
   EnableInBlocks: All
   Policies:
     Isotropy: Anisotropic
@@ -229,18 +225,17 @@ EventsAndTriggersAtIterations:
             - RadiallyCompressedCoordinates
             - RawEffSource
             - EF_EffSource
-            # - EF_Puncture
-            # - RawPuncture
+            # - LorenzGaugeCondition
           BlocksToObserve: All
           InterpolateToMesh: None
           ProjectToMesh: None
           CoordinatesFloatingPointType: Double
           FloatingPointTypes: [Double]
 
-RadiallyCompressedCoordinates:
-  InnerRadius: *worldtube_right
-  OuterRadius: *outer_radius
-  Compression: *outer_shell_distribution
+RadiallyCompressedCoordinates: None
+  # InnerRadius: *worldtube_right
+  # OuterRadius: *outer_radius
+  # Compression: *outer_shell_distribution
 
 BuildMatrix:
   MatrixSubfileName: None
