@@ -193,7 +193,7 @@ LinearSolver:
 
   Multigrid:
     Iterations: 1
-    InitialCoarseLevels: 0
+    InitialCoarseLevels: Auto
     PreSmoothing: True
     UseBottomSolver: False
     PostSmoothingAtBottom: False
@@ -203,7 +203,7 @@ LinearSolver:
 
   SchwarzSmoother:
     Iterations: 2
-    MaxOverlap: Auto
+    MaxOverlap: 1
     Verbosity: Silent
     SubdomainSolver:
       ExplicitInverse:
