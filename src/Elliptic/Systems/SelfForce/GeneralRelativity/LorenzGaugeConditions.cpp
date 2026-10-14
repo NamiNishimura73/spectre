@@ -85,6 +85,69 @@ void lorenz_gauge_coefficients_vrz(
 }
 // NOLINTEND
 
+// Same as lorenz_gauge_coefficients_vrz, but for the compactified u region,
+// written in la = 1/r = (2 r_u - sigma) / r_u^2. The d/dsigma coefficients
+// dr[nu][k] already include dsigma/dr = r_u^2 la^2, so they multiply
+// d_sigma psi_k directly. All coefficients are finite at scri (la = 0).
+// Generated with Mathematica: LorenzGaugeCond.m (Kerr section) ->
+// LG_coeffs_vrz_Comp.txt. Do not edit by hand.
+// NOLINTBEGIN
+void lorenz_gauge_coefficients_vrz_comp(
+    const double m, const double a, const double om, const double H,
+    const double la, const double ru, const double z,
+    std::array<std::array<std::complex<double>, 10>, 4>& c,
+    std::array<std::array<std::complex<double>, 10>, 4>& dr,
+    std::array<std::array<std::complex<double>, 10>, 4>& dz) {
+  for (size_t nu = 0; nu < 4; ++nu) {
+    c[nu].fill(0.);
+    dr[nu].fill(0.);
+    dz[nu].fill(0.);
+  }
+  c[0][0] = (std::complex<double>(0.,-1.)*la*(-1. + pow(z,2))*(std::complex<double>(0.,-1.)*la + std::complex<double>(0.,1.)*pow(a,4)*pow(la,5) + (1. + H)*om - 2.*a*pow(la,3)*(m + a*om*(-1. + pow(z,2))) + pow(a,2)*pow(la,4)*(std::complex<double>(0.,-2.) + a*m + pow(a,2)*om*(H + pow(z,2))) + pow(la,2)*(std::complex<double>(0.,2.) + a*m + pow(a,2)*om*(1. + 2.*H + pow(z,2)))))/((1. - 2.*la + pow(a,2)*pow(la,2))*(1. + pow(a,2)*pow(la,2)*pow(z,2)));
+  c[0][1] = (la*(-1.*la + pow(a,2)*pow(la,3) - std::complex<double>(0.,1.)*H*om - std::complex<double>(0.,1.)*a*pow(la,2)*(m + a*H*om))*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  c[0][2] = (-2.*pow(la,2)*z)/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  c[0][3] = (std::complex<double>(0.,1.)*pow(la,2)*((1. - 2.*la + pow(a,2)*pow(la,2))*m - 1.*a*(H + 2.*la + pow(a,2)*H*pow(la,2))*om*(-1. + pow(z,2))))/((1. - 2.*la + pow(a,2)*pow(la,2))*(1. + pow(a,2)*pow(la,2)*pow(z,2)));
+  dr[0][0] = (-1.*pow(la,3)*(1. + pow(a,2)*pow(la,2))*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dr[0][1] = (-1.*pow(la,3)*(1. - 2.*la + pow(a,2)*pow(la,2))*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dr[0][3] = (-1.*a*pow(la,4)*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dz[0][2] = (-1.*pow(la,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  c[1][0] = (-1.*pow(a,2)*pow(la,4)*pow(-1. + pow(z,2),2))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[1][1] = (std::complex<double>(0.,-1.)*la*(-1. + pow(z,2))*(std::complex<double>(0.,-1.)*la + (1. + H)*om + std::complex<double>(0.,1.)*pow(a,6)*pow(la,7)*pow(z,2) + pow(a,4)*pow(la,6)*pow(z,2)*(std::complex<double>(0.,-2.) + a*m + pow(a,2)*om*(H + pow(z,2))) + a*pow(la,3)*(-2.*m + a*(std::complex<double>(0.,2.) + 2.*om - std::complex<double>(0.,3.)*pow(z,2) - 2.*om*pow(z,2))) + pow(a,2)*pow(la,4)*(std::complex<double>(0.,6.)*(-1. + pow(z,2)) + a*m*(1. + pow(z,2)) + pow(a,2)*om*(H + 2.*pow(z,2) + 2.*H*pow(z,2) + pow(z,4))) + pow(a,3)*pow(la,5)*(-2.*m*pow(z,2) + a*(std::complex<double>(0.,3.) + 2.*(std::complex<double>(0.,-1.) + om)*pow(z,2) - 2.*om*pow(z,4))) + pow(la,2)*(std::complex<double>(0.,2.) + a*m + pow(a,2)*om*(1. + 2.*pow(z,2) + H*(2. + pow(z,2))))))/((1. - 2.*la + pow(a,2)*pow(la,2))*pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2));
+  c[1][3] = (2.*a*pow(la,3)*(-1. + pow(z,2)))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[1][4] = (std::complex<double>(0.,-1.)*la*(-1. + pow(z,2))*(std::complex<double>(0.,-1.)*la + H*om + std::complex<double>(0.,1.)*pow(a,4)*pow(la,5)*pow(z,2) + pow(a,2)*pow(la,4)*(std::complex<double>(0.,1.) + a*m + pow(a,2)*H*om)*pow(z,2) - std::complex<double>(0.,2.)*pow(a,2)*pow(la,3)*(-1. + pow(z,2)) + pow(la,2)*(std::complex<double>(0.,-1.) + a*m + pow(a,2)*H*om*(1. + pow(z,2)))))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[1][5] = (-2.*pow(la,2)*z)/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  c[1][6] = (std::complex<double>(0.,-1.)*pow(la,2)*((-1. + 2.*la)*m - 1.*pow(a,4)*pow(la,4)*m*pow(z,2) + a*(std::complex<double>(0.,-4.)*pow(la,2) + H*om + 2.*la*(std::complex<double>(0.,1.) + om))*(-1. + pow(z,2)) + pow(a,5)*H*pow(la,4)*om*pow(z,2)*(-1. + pow(z,2)) + pow(a,2)*pow(la,2)*m*(-1. + (-1. + 2.*la)*pow(z,2)) + pow(a,3)*pow(la,2)*(-1. + pow(z,2))*(H*om*(1. + pow(z,2)) + 2.*la*(std::complex<double>(0.,1.) + om*pow(z,2)))))/((1. - 2.*la + pow(a,2)*pow(la,2))*pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2));
+  c[1][7] = (-1.*pow(la,2))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[1][9] = (-1.*pow(la,2))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  dr[1][1] = (-1.*pow(la,3)*(1. + pow(a,2)*pow(la,2))*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dr[1][4] = (-1.*pow(la,3)*(1. - 2.*la + pow(a,2)*pow(la,2))*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dr[1][6] = (-1.*a*pow(la,4)*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dz[1][5] = (-1.*pow(la,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  c[2][0] = (-1.*pow(a,2)*pow(la,3)*(1. + pow(a,2)*pow(la,2))*z*pow(-1. + pow(z,2),2))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[2][1] = (-2.*pow(a,2)*pow(la,3)*(1. + pow(a,2)*pow(la,2))*z*pow(-1. + pow(z,2),2))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[2][2] = (std::complex<double>(0.,-1.)*(-1. + pow(z,2))*(std::complex<double>(0.,-2.)*la + (1. + H)*om + pow(a,3)*pow(la,4)*(m + a*om*(H + pow(z,2))) + pow(la,2)*(std::complex<double>(0.,4.) + a*m + pow(a,2)*om*(1. + 2.*H + pow(z,2))) - 2.*a*pow(la,3)*(m + a*(std::complex<double>(0.,1.) + om*(-1. + pow(z,2))))))/((1. - 2.*la + pow(a,2)*pow(la,2))*(1. + pow(a,2)*pow(la,2)*pow(z,2)));
+  c[2][3] = (-2.*pow(a,3)*pow(la,4)*z*pow(-1. + pow(z,2),2))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[2][4] = (-1.*pow(a,2)*pow(la,3)*(1. - 2.*la + pow(a,2)*pow(la,2))*z*pow(-1. + pow(z,2),2))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[2][5] = (std::complex<double>(0.,-1.)*(std::complex<double>(0.,-2.)*la + H*om + pow(la,2)*(std::complex<double>(0.,2.) + a*m + pow(a,2)*H*om))*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  c[2][6] = (-2.*pow(a,3)*pow(la,4)*z*pow(-1. + pow(z,2),2))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[2][7] = (-1.*la*(1. + pow(a,2)*pow(la,2))*z)/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  c[2][8] = (std::complex<double>(0.,-1.)*la*(-1.*pow(a,2)*pow(la,2)*m + (-1. + 2.*la)*m + pow(a,3)*pow(la,2)*(std::complex<double>(0.,-1.)*la + H*om)*(-1. + pow(z,2)) + a*(std::complex<double>(0.,2.)*pow(la,2) + H*om + la*(std::complex<double>(0.,-1.) + 2.*om))*(-1. + pow(z,2))))/((1. - 2.*la + pow(a,2)*pow(la,2))*(1. + pow(a,2)*pow(la,2)*pow(z,2)));
+  c[2][9] = (la*z*(1. + pow(a,2)*pow(la,2)*(-1. + 2.*pow(z,2))))/pow(1. + pow(a,2)*pow(la,2)*pow(z,2),2);
+  dr[2][2] = (-1.*pow(la,2)*(1. + pow(a,2)*pow(la,2))*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dr[2][5] = (-1.*pow(la,2)*(1. - 2.*la + pow(a,2)*pow(la,2))*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dr[2][8] = (-1.*a*pow(la,3)*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dz[2][7] = (la - 1.*la*pow(z,2))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  c[3][3] = (std::complex<double>(0.,-1.)*(-1. + pow(z,2))*(std::complex<double>(0.,-2.)*la + (1. + H)*om + pow(a,3)*pow(la,4)*(m + a*om*(H + pow(z,2))) + pow(la,2)*(std::complex<double>(0.,4.) + a*m + pow(a,2)*om*(1. + 2.*H + pow(z,2))) - 2.*a*pow(la,3)*(m + a*(std::complex<double>(0.,1.) + om*(-1. + pow(z,2))))))/((1. - 2.*la + pow(a,2)*pow(la,2))*(1. + pow(a,2)*pow(la,2)*pow(z,2)));
+  c[3][6] = (std::complex<double>(0.,-1.)*(std::complex<double>(0.,-2.)*la + H*om + pow(la,2)*(std::complex<double>(0.,2.) + a*m + pow(a,2)*H*om))*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  c[3][8] = (-2.*la*z)/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  c[3][9] = (std::complex<double>(0.,-1.)*la*(-1.*pow(a,2)*pow(la,2)*m + (-1. + 2.*la)*m + pow(a,3)*pow(la,2)*(std::complex<double>(0.,-1.)*la + H*om)*(-1. + pow(z,2)) + a*(std::complex<double>(0.,2.)*pow(la,2) + H*om + la*(std::complex<double>(0.,-1.) + 2.*om))*(-1. + pow(z,2))))/((1. - 2.*la + pow(a,2)*pow(la,2))*(1. + pow(a,2)*pow(la,2)*pow(z,2)));
+  dr[3][3] = (-1.*pow(la,2)*(1. + pow(a,2)*pow(la,2))*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dr[3][6] = (-1.*pow(la,2)*(1. - 2.*la + pow(a,2)*pow(la,2))*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dr[3][9] = (-1.*a*pow(la,3)*pow(ru,2)*(-1. + pow(z,2)))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+  dz[3][8] = (la - 1.*la*pow(z,2))/(1. + pow(a,2)*pow(la,2)*pow(z,2));
+}
+// NOLINTEND
+
 // (a, b) index pair of psi_k, k = 0..9
 constexpr std::array<std::array<size_t, 2>, 10> psi_index_pairs{
     {{{0, 0}}, {{0, 1}}, {{0, 2}}, {{0, 3}}, {{1, 1}}, {{1, 2}}, {{1, 3}},
@@ -140,7 +203,9 @@ void lorenz_gauge_condition(
       return;  // sizes inconsistent (observer mesh mismatch or uninit field)
     }
     // x = (r, z), except in the compactified u region where
-    // x^0 = sigma = 2 r_u - r_u^2 / r and d/dr = (r_u^2 / r^2) d/dsigma.
+    // x^0 = sigma = 2 r_u - r_u^2 / r. There we use the coefficients written
+    // in la = 1/r, whose d/dsigma terms already include dsigma/dr, so they
+    // stay finite at scri (sigma = 2 r_u).
     const auto& sigma_or_r = get<0>(x);
     const auto& z = get<1>(x);
     const DataVector H = circular_orbit.hyperboloidal_boost_function(sigma_or_r);
@@ -152,22 +217,23 @@ void lorenz_gauge_condition(
     std::array<std::array<std::complex<double>, 10>, 4> dr{};
     std::array<std::array<std::complex<double>, 10>, 4> dz{};
     for (size_t i = 0; i < num_pts; ++i) {
-      double r = sigma_or_r[i];
-      double dsigma_dr = 1.;
       if (compactified and sigma_or_r[i] > r_u) {
-        r = square(r_u) / (2. * r_u - sigma_or_r[i]);
-        dsigma_dr = square(r_u / r);
+        const double la = (2. * r_u - sigma_or_r[i]) / square(r_u);
+        lorenz_gauge_coefficients_vrz_comp(static_cast<double>(m_mode), a,
+                                           m_mode * omega, H[i], la, r_u, z[i],
+                                           c, dr, dz);
+      } else {
+        lorenz_gauge_coefficients_vrz(static_cast<double>(m_mode), a,
+                                      m_mode * omega, H[i], sigma_or_r[i], z[i],
+                                      c, dr, dz);
       }
-      lorenz_gauge_coefficients_vrz(static_cast<double>(m_mode), a,
-                                    m_mode * omega, H[i], r, z[i], c, dr, dz);
       for (size_t nu = 0; nu < 4; ++nu) {
         std::complex<double> lg = 0.;
         for (size_t k = 0; k < 10; ++k) {
           const size_t i0 = gsl::at(psi_index_pairs, k)[0];
           const size_t i1 = gsl::at(psi_index_pairs, k)[1];
           lg += gsl::at(gsl::at(c, nu), k) * field.get(i0, i1)[i] +
-                gsl::at(gsl::at(dr, nu), k) * dsigma_dr *
-                    deriv_field.get(0, i0, i1)[i] +
+                gsl::at(gsl::at(dr, nu), k) * deriv_field.get(0, i0, i1)[i] +
                 gsl::at(gsl::at(dz, nu), k) * deriv_field.get(1, i0, i1)[i];
         }
         result->get(nu)[i] = lg;
