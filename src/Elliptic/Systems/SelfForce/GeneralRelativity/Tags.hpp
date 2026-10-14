@@ -124,7 +124,24 @@ struct GammaTheta : db::SimpleTag {
 struct FieldIsRegularized : db::SimpleTag {
   using type = bool;
 };
-
+/*!
+ * \brief A flag indicating that we are solving in v-slicing region
+ */
+struct FieldIsInVSlicingRegion : db::SimpleTag {
+  using type = bool;
+};
+/*!
+ * \brief A flag indicating that we are solving in t-slicing region
+ */
+struct FieldIsInTSlicingRegion : db::SimpleTag {
+  using type = bool;
+};
+/*!
+ * \brief A flag indicating that we are solving in u-slicing region
+ */
+struct FieldIsInUSlicingRegion : db::SimpleTag {
+  using type = bool;
+};
 /*!
  * \brief The singular field $\Psi_m^\mathcal{P}$.
  *

@@ -94,7 +94,11 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
                  Tags::BoyerLindquistRadius,  Tags::RawEffSource,
                  Tags::EF_EffSource, Tags::RawPuncture, Tags::EF_Puncture,
                  Tags::FieldIsRegularized,
-                 ::Tags::Mortars<Tags::FieldIsRegularized, Dim>>;
+                 ::Tags::Mortars<Tags::FieldIsRegularized, Dim>,
+                 Tags::FieldIsInVSlicingRegion,
+                 Tags::FieldIsInTSlicingRegion,
+                 Tags::FieldIsInUSlicingRegion
+                 >;
   using compute_tags = tmpl::list<>;
 
   template <typename DbTagsList, typename... InboxTags, typename Metavariables,
@@ -134,6 +138,9 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
       const gsl::not_null<bool*> field_is_regularized,
       const gsl::not_null<DirectionalIdMap<Dim, bool>*>
           neighbors_field_is_regularized,
+      const gsl::not_null<bool*> field_is_in_v_slicing_region,
+      const gsl::not_null<bool*> field_is_in_t_slicing_region,
+      const gsl::not_null<bool*> field_is_in_u_slicing_region,
       const tnsr::I<DataVector, Dim>& inertial_coords,
       const Domain<Dim>& domain, const Element<Dim>& element,
       const DirectionalIdMap<Dim, tnsr::I<DataVector, Dim>>&
@@ -146,6 +153,7 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
     call_with_dynamic_type<void, tmpl::at<factory_classes, Background>>(
         &background, [&](const auto* const circular_orbit_ptr) {
           const auto& circular_orbit = *circular_orbit_ptr;
+          const auto& transitions = circular_orbit.hyperboloidal_slicing_transitions();
           // Check if this element and its neighbors solve for the regular field
           // or the full field
           const tnsr::I<double, Dim> puncture_pos =
@@ -167,6 +175,16 @@ struct InitializeEffectiveSource : tt::ConformsTo<::amr::protocols::Projector> {
                   mortar_id, puncture_in_element(neighbor_id));
             }
           }
+        if (not transitions.has_value()) {
+            ERROR(
+                "Hyperboloidal slicing must be enabled when penetrating_horizon is "
+                "true.");
+        }
+        const double r_ref = inertial_coords.get(0)[0];
+        *field_is_in_v_slicing_region = (r_ref < transitions.value()[0]);
+        *field_is_in_u_slicing_region = (r_ref > transitions.value()[2]);
+        *field_is_in_t_slicing_region = (transitions.value()[0] <= r_ref and
+                                        r_ref < transitions.value()[2]);
 
           // Set the effective source if solving for the regular field
           const size_t num_points = mesh.number_of_grid_points();

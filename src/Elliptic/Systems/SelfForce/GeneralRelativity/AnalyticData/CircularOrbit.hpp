@@ -139,6 +139,7 @@ class CircularOrbit : public elliptic::analytic_data::Background,
   hyperboloidal_slicing_transitions() const {
     return hyperboloidal_slicing_transitions_;
   }
+  DataVector hyperboloidal_boost_function(const DataVector& r) const;
   bool penetrating_horizon() const { return penetrating_horizon_; }
   bool compactification() const { return compactification_; }
   bool reduced_ABC() const { return reduced_ABC_; }

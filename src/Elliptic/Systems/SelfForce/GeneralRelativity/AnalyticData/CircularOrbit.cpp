@@ -106,6 +106,15 @@ double CircularOrbit::omega() const {
   const double r_0 = orbital_radius_;
   return 1. / (a + sqrt(cube(r_0) / M));
 }
+DataVector CircularOrbit::hyperboloidal_boost_function(
+    const DataVector& r_star_or_r) const {
+  if (not hyperboloidal_slicing_transitions_.has_value()) {
+    return DataVector(r_star_or_r.size(), 0.0);
+  }
+  return boost_function_and_deriv<1>(
+             r_star_or_r, hyperboloidal_slicing_transitions_.value())
+      .first;
+}
 
 // Background
 tuples::TaggedTuple<Tags::Alpha, Tags::Beta, Tags::GammaRstar, Tags::GammaTheta>

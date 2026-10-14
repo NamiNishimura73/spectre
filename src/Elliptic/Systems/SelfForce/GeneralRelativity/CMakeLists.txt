@@ -9,6 +9,7 @@ spectre_target_sources(
   ${LIBRARY}
   PRIVATE
   Equations.cpp
+  LorenzGaugeConditions.cpp
   )
 
 spectre_target_headers(
@@ -17,6 +18,7 @@ spectre_target_headers(
   HEADERS
   Equations.hpp
   FirstOrderSystem.hpp
+  LorenzGaugeConditions.hpp
   Tags.hpp
   )
 
@@ -26,6 +28,7 @@ target_link_libraries(
   DataStructures
   DomainStructure
   ErrorHandling
+  GeneralRelativity
   GrSelfForceAnalyticData
   Utilities
   )
