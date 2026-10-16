@@ -238,8 +238,14 @@ NumericData::variables(
       acos(get<1>(x));  // get<1>(x) is cos_theta when penetrating_horizon
   const DataVector r_minus_r_plus = r - r_plus;
   const DataVector delta = r_minus_r_plus * (r - r_minus);
-  const DataVector delta_phi = m_mode_number_ * a / (r_plus - r_minus) *
+  // Sign of the pi_2_rotation phase. Flip to -1. to test the other convention
+  // (delta_phi and its r-derivative flip together).
+  const double rotation_sign = 1.;
+  const DataVector delta_phi = rotation_sign * m_mode_number_ * a /
+                               (r_plus - r_minus) *
                                log((r - r_plus) / (r - r_minus));
+  // d(delta_phi)/dr = rotation_sign * m a / Delta
+  const DataVector delta_phi_dr = rotation_sign * m_mode_number_ * a / delta;
   const ComplexDataVector rotation =
       cos(delta_phi) + std::complex<double>(0., 1.) * sin(delta_phi);
   tuples::TaggedTuple<
@@ -484,6 +490,16 @@ NumericData::variables(
           const std::complex<double> dhS =
               (dhS_re_arr[k] + std::complex<double>(0., 1.) * dhS_im_arr[k]);
           rotated_dhS = 2 * M_PI * rotation[i] * dhS;
+          if (on_left or on_right) {
+            // The rotation phase depends on r, so the radial derivative of
+            // the rotated field needs the product-rule term:
+            // d_r(2 pi e^{i delta_phi} hS)
+            //   = 2 pi e^{i delta_phi} (d_r hS + i d_r(delta_phi) hS)
+            // (hS here is the unrotated value; rotated_hS already carries the
+            // 2 pi e^{i delta_phi} factor.)
+            rotated_dhS += std::complex<double>(0., 1.) * delta_phi_dr[i] *
+                           rotated_hS;
+          }
           dhS_re_arr[k] = rotated_dhS.real();
           dhS_im_arr[k] = rotated_dhS.imag();
         }
