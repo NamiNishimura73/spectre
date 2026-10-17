@@ -82,7 +82,9 @@ struct Metavariables {
                  GrSelfForce::Tags::LorenzGaugeCondition,
                  GrSelfForce::Tags::LorenzGaugeConditionVSlicing,
                  GrSelfForce::Tags::LorenzGaugeConditionTSlicing,
-                 GrSelfForce::Tags::LorenzGaugeConditionUSlicing>,
+                 GrSelfForce::Tags::LorenzGaugeConditionUSlicing,
+                 GrSelfForce::Tags::LorenzGaugeConditionPuncture,
+                 GrSelfForce::Tags::LorenzGaugeConditionResidual>,
       typename solver::observe_fields,
       tmpl::list<domain::Tags::Coordinates<volume_dim, Frame::Inertial>,
                  domain::Tags::RadiallyCompressedCoordinatesCompute<
@@ -94,7 +96,9 @@ struct Metavariables {
                     GrSelfForce::Tags::LorenzGaugeConditionCompute,
                     GrSelfForce::Tags::LorenzGaugeConditionVSlicingCompute,
                     GrSelfForce::Tags::LorenzGaugeConditionTSlicingCompute,
-                    GrSelfForce::Tags::LorenzGaugeConditionUSlicingCompute>;
+                    GrSelfForce::Tags::LorenzGaugeConditionUSlicingCompute,
+                    GrSelfForce::Tags::LorenzGaugeConditionPunctureCompute,
+                    GrSelfForce::Tags::LorenzGaugeConditionResidualCompute>;
 
   // Collect all items to store in the cache.
   using const_global_cache_tags =

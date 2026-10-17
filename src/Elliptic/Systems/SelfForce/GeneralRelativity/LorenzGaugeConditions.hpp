@@ -123,5 +123,54 @@ struct LorenzGaugeConditionUSlicingCompute : LorenzGaugeConditionUSlicing,
   }
 };
 
+struct LorenzGaugeConditionPuncture : db::SimpleTag {
+  using type = tnsr::a<ComplexDataVector, 3>;
+};
+
+struct LorenzGaugeConditionPunctureCompute : LorenzGaugeConditionPuncture,
+                                             db::ComputeTag {
+  using base = LorenzGaugeConditionPuncture;
+  using return_type = tnsr::a<ComplexDataVector, 3>;
+  using argument_tags = tmpl::list<
+      elliptic::Tags::Background<elliptic::analytic_data::Background>,
+      GrSelfForce::Tags::SingularField,
+      ::Tags::deriv<GrSelfForce::Tags::SingularField, tmpl::size_t<2>,
+                    Frame::Inertial>,
+      domain::Tags::Coordinates<2, Frame::Inertial>>;
+  static void function(
+      gsl::not_null<tnsr::a<ComplexDataVector, 3>*> result,
+      const elliptic::analytic_data::Background& background,
+      const tnsr::aa<ComplexDataVector, 3>& singular_field, 
+      const DerivMMode& deriv_singular_field,
+      const tnsr::I<DataVector, 2, Frame::Inertial>& x) {
+    lorenz_gauge_condition(result, background, singular_field,
+                           deriv_singular_field, x, false);
+  }
+};
+
+struct LorenzGaugeConditionResidual : db::SimpleTag {
+  using type = tnsr::a<ComplexDataVector, 3>;
+};
+
+struct LorenzGaugeConditionResidualCompute : LorenzGaugeConditionResidual, db::ComputeTag {
+  using base = LorenzGaugeConditionResidual;
+  using return_type = tnsr::a<ComplexDataVector, 3>;
+  using argument_tags = tmpl::list<
+      elliptic::Tags::Background<elliptic::analytic_data::Background>,
+      GrSelfForce::Tags::MMode,
+      ::Tags::deriv<GrSelfForce::Tags::MMode, tmpl::size_t<2>, Frame::Inertial>,
+      domain::Tags::Coordinates<2, Frame::Inertial>,
+      GrSelfForce::Tags::FieldIsRegularized>;
+  static void function(
+      gsl::not_null<tnsr::a<ComplexDataVector, 3>*> result,
+      const elliptic::analytic_data::Background& background,
+      const tnsr::aa<ComplexDataVector, 3>& field, const DerivMMode& deriv_field,
+      const tnsr::I<DataVector, 2, Frame::Inertial>& x,
+      const bool field_is_regularized) {
+    lorenz_gauge_condition(result, background, field, deriv_field, x,
+                           not field_is_regularized);
+  }
+};
+
 }  // namespace Tags
 }  // namespace GrSelfForce
