@@ -62,9 +62,13 @@ std::pair<double, double> extract_second_order_flux(
 
   const auto& first_order_interpolator =
       get_first_order_interpolator(first_order_data_directory);
+  // Evaluate the first-order field at the outer radius of the first-order
+  // run (r_max = 1e8, same angles), not at this run's outer boundary.
+  tnsr::I<DataVector, 2, Frame::Inertial> first_order_coords = face_coords;
+  get<0>(first_order_coords) = 0.999 * 1.e8;
   std::vector<DataVector> interpolated;
   first_order_interpolator.interpolate_to_points(make_not_null(&interpolated),
-                                                 face_coords);
+                                                 first_order_coords);
 
   const ComplexDataVector psi7_1st =
       interpolated[0] + std::complex<double>(0., 1.) * interpolated[1];

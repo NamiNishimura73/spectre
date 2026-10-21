@@ -23,6 +23,7 @@
 #include "IO/H5/Dat.hpp"
 #include "IO/H5/File.hpp"
 #include "IO/H5/Helpers.hpp"
+#include "NumericalAlgorithms/Interpolation/MultiCubicSpanInterpolation.hpp"
 #include "NumericalAlgorithms/Interpolation/MultiLinearSpanInterpolation.hpp"
 #include "Parallel/Printf/Printf.hpp"
 #include "PointwiseFunctions/GeneralRelativity/TortoiseCoordinates.hpp"
@@ -35,8 +36,16 @@ namespace GrSelfForce::AnalyticData {
 
 namespace {
 
-Interpolator load_data_from_file(const std::string& filename,
-                                 const std::string& subfile_name) {
+struct RawTableData {
+  std::vector<double> r;
+  std::vector<double> theta;
+  std::vector<double> flat_data;
+};
+
+// Builds uniform coordinates r[i] = rMin + i*dr, theta[j] = thetaMin + j*dtheta
+// and flattens the (npoints, 20) matrix into flat_data[i*20 + k]
+RawTableData load_raw_table(const std::string& filename,
+                            const std::string& subfile_name) {
   // Open file
   CAPTURE_FOR_ERROR(filename);
   CAPTURE_FOR_ERROR(subfile_name);
@@ -95,8 +104,19 @@ Interpolator load_data_from_file(const std::string& filename,
   // Close file
   h5file.close();
 
-  // Construct interpolator
   return {std::move(r), std::move(theta), std::move(flat_data)};
+}
+
+Interpolator load_data_from_file(const std::string& filename,
+                                 const std::string& subfile_name) {
+  auto raw = load_raw_table(filename, subfile_name);
+  return {std::move(raw.r), std::move(raw.theta), std::move(raw.flat_data)};
+}
+
+CubicInterpolator load_data_from_file_cubic(const std::string& filename,
+                                            const std::string& subfile_name) {
+  auto raw = load_raw_table(filename, subfile_name);
+  return {std::move(raw.r), std::move(raw.theta), std::move(raw.flat_data)};
 }
 
 Interpolator1D load_data_from_file_1D(const std::string& filename,
@@ -146,11 +166,15 @@ Interpolator1D load_data_from_file_1D(const std::string& filename,
   return {std::move(coord), std::move(flat_data)};
 }
 
-std::array<Interpolator, 5> load_all_data(const std::string& filename) {
-  return {{load_data_from_file(filename, "RetRetV"),
-           load_data_from_file(filename, "RetRetT"),
-           load_data_from_file(filename, "RetRetU"),
-           load_data_from_file(filename, "Seff"),
+std::array<CubicInterpolator, 3> load_retret_data(const std::string& filename) {
+  return {{load_data_from_file_cubic(filename, "RetRetV"),
+           load_data_from_file_cubic(filename, "RetRetT"),
+           load_data_from_file_cubic(filename, "RetRetU")}};
+}
+
+std::array<Interpolator, 2> load_seff_puncture_data(
+    const std::string& filename) {
+  return {{load_data_from_file(filename, "Seff"),
            load_data_from_file(filename, "Puncture")}};
 }
 
@@ -182,7 +206,8 @@ NumericData::NumericData(
                       penetrating_horizon,  /*compactification=*/false,
                       reduced_ABC, version),
       pi_2_rotation_(pi_2_rotation) {
-  interpolators_ = load_all_data(filename_);
+  retret_interpolators_ = load_retret_data(filename_);
+  seff_puncture_interpolators_ = load_seff_puncture_data(filename_);
   boundary_interpolators_ = load_all_boundary_data(filename_);
 }
 
@@ -282,25 +307,56 @@ NumericData::variables(
   for (size_t i = 0; i < deriv_singular_field.size(); i++) {
     deriv_singular_field[i].destructive_resize(num_points);
   }
-  // Decide which interpolator to use based on position
+  // Decide which interpolator to use based on position. Seff (inside the
+  // worldtube, field_is_regularized = True) uses bilinear interpolation, since
+  // it is only C1 at the particle. RetRetV/T/U (outside the worldtube) use
+  // bicubic interpolation, since that source is expected to be smooth away
+  // from the particle. Exactly one of the two pointers is non-null.
   const auto& hyperboloidal_slicing_transitions =
       circular_orbit_.hyperboloidal_slicing_transitions().value();
-  const auto& interpolator = [&]() {
+  const intrp::UniformMultiLinearSpanInterpolation<2, 20>* seff_interpolator =
+      field_is_regularized ? &seff_puncture_interpolators_[0].interpolator
+                           : nullptr;
+  const intrp::UniformMultiCubicSpanInterpolation<20>* retret_interpolator =
+      [&]() -> const intrp::UniformMultiCubicSpanInterpolation<20>* {
     if (field_is_regularized) {
-      return interpolators_[3].interpolator;
+      return nullptr;
     }
     const double any_r = r[0];
     if (any_r < hyperboloidal_slicing_transitions[0]) {
-      return interpolators_[0].interpolator;
+      return &retret_interpolators_[0].interpolator;
     } else if (any_r < hyperboloidal_slicing_transitions[2]) {
-      return interpolators_[1].interpolator;
+      return &retret_interpolators_[1].interpolator;
     } else {
-      return interpolators_[2].interpolator;
+      return &retret_interpolators_[2].interpolator;
     }
   }();
+  const auto bound = [&](const bool upper, const size_t dim) {
+    if (field_is_regularized) {
+      return upper ? seff_interpolator->upper_bound(dim)
+                   : seff_interpolator->lower_bound(dim);
+    }
+    return upper ? retret_interpolator->upper_bound(dim)
+                 : retret_interpolator->lower_bound(dim);
+  };
   const std::array<std::array<double, 2>, 2> interpolator_bounds{
-      {{{interpolator.lower_bound(0), interpolator.upper_bound(0)}},
-       {{interpolator.lower_bound(1), interpolator.upper_bound(1)}}}};
+      {{{bound(false, 0), bound(true, 0)}}, {{bound(false, 1), bound(true, 1)}}}};
+  // All 20 source values (re/im of 10 components) at one point
+  const auto interpolate_source = [&](const double r_c, const double theta_c) {
+    std::array<double, 20> values{};
+    if (field_is_regularized) {
+      const auto w = seff_interpolator->get_weights(r_c, theta_c);
+      for (size_t k = 0; k < 20; ++k) {
+        gsl::at(values, k) = seff_interpolator->interpolate(w, k);
+      }
+    } else {
+      const auto w = retret_interpolator->get_weights(r_c, theta_c);
+      for (size_t k = 0; k < 20; ++k) {
+        gsl::at(values, k) = retret_interpolator->interpolate(w, k);
+      }
+    }
+    return values;
+  };
   // Interpolate data
   // Ordering of components:
   // tt, tr, ttheta, tphi, rr, rtheta, rphi, theta theta, theta phi, phi phi
@@ -326,15 +382,15 @@ NumericData::variables(
                                  << interpolator_bounds[1][0] << ", "
                                  << interpolator_bounds[1][1] << "]");
     }
-    const auto weights = interpolator.get_weights(r_clamped, theta_clamped);
+    const auto src_values = interpolate_source(r_clamped, theta_clamped);
     // Load raw BL-frame source from h5 (upper-triangular ordering: k=0..9)
     std::array<double, 10> src_re_arr{};
     std::array<double, 10> src_im_arr{};
     std::array<double, 10> src_conv_re{};
     std::array<double, 10> src_conv_im{};
     for (size_t k = 0; k < 10; ++k) {
-      gsl::at(src_re_arr, k) = interpolator.interpolate(weights, 2 * k);
-      gsl::at(src_im_arr, k) = interpolator.interpolate(weights, 2 * k + 1);
+      gsl::at(src_re_arr, k) = gsl::at(src_values, 2 * k);
+      gsl::at(src_im_arr, k) = gsl::at(src_values, 2 * k + 1);
       if (pi_2_rotation_) {
         const std::complex<double> rotated =
             (gsl::at(src_re_arr, k) +
@@ -379,15 +435,15 @@ NumericData::variables(
     // shares its (r, theta) grid with Seff.
     if (field_is_regularized) {
       const auto puncture_weights =
-          interpolators_[4].interpolator.get_weights(r_clamped, theta_clamped);
+          seff_puncture_interpolators_[1].interpolator.get_weights(r_clamped, theta_clamped);
       std::array<double, 10> hP_re_arr{};
       std::array<double, 10> hP_im_arr{};
       std::array<double, 10> hP_conv_re{};
       std::array<double, 10> hP_conv_im{};
       for (size_t k = 0; k < 10; ++k) {
         gsl::at(hP_re_arr, k) =
-            interpolators_[4].interpolator.interpolate(puncture_weights, 2 * k);
-        gsl::at(hP_im_arr, k) = interpolators_[4].interpolator.interpolate(
+            seff_puncture_interpolators_[1].interpolator.interpolate(puncture_weights, 2 * k);
+        gsl::at(hP_im_arr, k) = seff_puncture_interpolators_[1].interpolator.interpolate(
             puncture_weights, 2 * k + 1);
         if (pi_2_rotation_) {
           const std::complex<double> rotated =
@@ -430,10 +486,10 @@ NumericData::variables(
   }
 
   if (field_is_regularized) {
-    const double r_wt_left = interpolators_[3].interpolator.lower_bound(0);
-    const double r_wt_right = interpolators_[3].interpolator.upper_bound(0);
-    const double theta_wt_bot = interpolators_[3].interpolator.lower_bound(1);
-    const double theta_wt_top = interpolators_[3].interpolator.upper_bound(1);
+    const double r_wt_left = seff_puncture_interpolators_[0].interpolator.lower_bound(0);
+    const double r_wt_right = seff_puncture_interpolators_[0].interpolator.upper_bound(0);
+    const double theta_wt_bot = seff_puncture_interpolators_[0].interpolator.lower_bound(1);
+    const double theta_wt_top = seff_puncture_interpolators_[0].interpolator.upper_bound(1);
 
     {
       for (auto& component : singular_field) {
@@ -582,7 +638,8 @@ void NumericData::pup(PUP::er& p) {
   p | circular_orbit_;
   p | pi_2_rotation_;
   if (p.isUnpacking()) {
-    interpolators_ = load_all_data(filename_);
+    retret_interpolators_ = load_retret_data(filename_);
+    seff_puncture_interpolators_ = load_seff_puncture_data(filename_);
     boundary_interpolators_ = load_all_boundary_data(filename_);
   }
 }
