@@ -6,6 +6,7 @@
 #include <complex>
 #include <cstddef>
 #include <effsource_gr.hpp>
+#include <tuple>
 #include <utility>
 
 #include "DataStructures/ComplexDataVector.hpp"
@@ -162,11 +163,9 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
   std::array<std::array<double, 10>, 10> Cimag{};
   DataVector H{};
   DataVector dH{};
-  if (penetrating_horizon_) {
-    auto boost_and_deriv = boost_function_and_deriv<1>(
-        r, hyperboloidal_slicing_transitions_.value());
-    H = std::move(boost_and_deriv.first);
-    dH = std::move(boost_and_deriv.second);
+  if (hyperboloidal_slicing_transitions_.has_value()) {
+    std::tie(H, dH) = boost_function_and_deriv<1>(
+        r_star_or_r, hyperboloidal_slicing_transitions_.value());
   }
   for (size_t i = 0; i < r.size(); i++) {
     if (penetrating_horizon_) {
@@ -225,22 +224,19 @@ CircularOrbit::variables(const tnsr::I<DataVector, 2>& x,
     }
     // Hyperboloidal slicing
     if (hyperboloidal_slicing_transitions_.has_value()) {
-      const auto [H_rstar, dH_rstar] = boost_function_and_deriv<1>(
-          r_star, hyperboloidal_slicing_transitions_.value());
       for (size_t a1 = 0; a1 < 4; ++a1) {
         for (size_t b = 0; b <= a1; ++b) {
           for (size_t c = 0; c < 4; ++c) {
             for (size_t d = 0; d <= c; ++d) {
               if (a1 == c and b == d) {
-                beta.get(a1, b, c, d) += std::complex<double>(0., -k) *
-                                             dH_rstar +
-                                         square(k) * square(H_rstar);
+                beta.get(a1, b, c, d) +=
+                    std::complex<double>(0., -k) * dH + square(k) * square(H);
               }
               beta.get(a1, b, c, d) += std::complex<double>(0., k) *
-                                       gamma_rstar.get(a1, b, c, d) * H_rstar;
+                                       gamma_rstar.get(a1, b, c, d) * H;
               if (a1 == c and b == d) {
                 gamma_rstar.get(a1, b, c, d) -=
-                    std::complex<double>(0., 2. * k) * H_rstar;
+                    std::complex<double>(0., 2. * k) * H;
               }
             }
           }
@@ -379,7 +375,14 @@ CircularOrbit::variables(
     std::array<double, 10> src_im{};
     std::array<double, 10> src_conv_re{};
     std::array<double, 10> src_conv_im{};
-    const std::complex<double> sign = penetrating_horizon_ ? 1. : -1.;
+    // The non-`_vr` coefficients were derived for
+    // (+Laplacian + A d_rstar + B d_theta + C) psi = S, so the equation is
+    // multiplied by -1 to match the first-order flux form (-d_i F^i + ...).
+    // This flips beta and gamma in the background and the effective source
+    // here. The `_vr` coefficients were derived for
+    // (-Laplacian + A d_r + B d_z + C) psi = S, with z = cos(theta), and need
+    // no flip.
+    const double sign = penetrating_horizon_ ? 1. : -1.;
     for (size_t i = 0; i < get<0>(x).size(); ++i) {
       x_i.t = 0;
       x_i.r = r[i];

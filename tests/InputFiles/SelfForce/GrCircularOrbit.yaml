@@ -127,7 +127,7 @@ DomainCreator:
             OrbitalRadius: *orbital_radius
             MModeNumber: *m_mode_number
             HyperboloidalSlicing: True
-            Order: 1
+            Order: 2
       # Angular boundary conditions
       - None
 

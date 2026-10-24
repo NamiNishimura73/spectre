@@ -36,8 +36,7 @@ using FluxTensorType =
 /// @}
 
 /*!
- * \brief The first-order flux $F^i=\{\partial_{r_\star}, \alpha
- * \partial_\theta\}\Psi_m$.
+ * \brief The first-order flux $F^i=\alpha^i \partial_i \Psi_m$.
  */
 void fluxes(gsl::not_null<FluxTensorType*> flux,
             const tnsr::I<ComplexDataVector, 2>& alpha,
@@ -45,7 +44,7 @@ void fluxes(gsl::not_null<FluxTensorType*> flux,
 
 /*!
  * \brief The first-order flux on an element face
- * $F^i=\{n_{r_\star}, \alpha n_\theta\}\Psi_m$.
+ * $F^i=\alpha^i n_i \Psi_m$.
  */
 void fluxes_on_face(gsl::not_null<FluxTensorType*> flux,
                     const tnsr::I<ComplexDataVector, 2>& alpha,
@@ -54,7 +53,7 @@ void fluxes_on_face(gsl::not_null<FluxTensorType*> flux,
 
 /*!
  * \brief The source term $\beta_{ab}^{cd} (\Psi_m)_{cd} + \gamma_{iab}^{cd}
- * F^i_{cd}$.
+ * \partial_i (\Psi_m)_{cd}$.
  */
 void add_sources(gsl::not_null<tnsr::aa<ComplexDataVector, 3>*> source,
                  const tnsr::aaBB<ComplexDataVector, 3>& beta,
