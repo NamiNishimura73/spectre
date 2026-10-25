@@ -9,6 +9,7 @@ spectre_target_sources(
   ${LIBRARY}
   PRIVATE
   ObserveFlux.cpp
+  ObserveFluxHorizon.cpp
   ObserveRedshift.cpp
   ObserveSecondOrderFlux.cpp
   )
@@ -18,6 +19,7 @@ spectre_target_headers(
   INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/src
   HEADERS
   ObserveFlux.hpp
+  ObserveFluxHorizon.hpp
   ObserveRedshift.hpp
   ObserveSecondOrderFlux.hpp
   )
@@ -36,4 +38,5 @@ target_link_libraries(
   DiscontinuousGalerkin
   Exporter
   LinearOperators
+  Spectral
   )

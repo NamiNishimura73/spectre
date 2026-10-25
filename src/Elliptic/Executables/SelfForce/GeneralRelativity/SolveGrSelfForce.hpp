@@ -21,6 +21,7 @@
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/BoundaryConditions/None.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/BoundaryConditions/Sommerfeld.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Events/ObserveFlux.hpp"
+#include "Elliptic/Systems/SelfForce/GeneralRelativity/Events/ObserveFluxHorizon.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/LorenzGaugeConditions.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Events/ObserveRedshift.hpp"
 #include "Elliptic/Systems/SelfForce/GeneralRelativity/Events/ObserveSecondOrderFlux.hpp"
@@ -134,6 +135,8 @@ struct Metavariables {
                                                observer_compute_tags,
                                                amr::Tags::IsFinestGrid>,
                 GrSelfForce::Events::ObserveFlux<amr::Tags::IsFinestGrid>,
+                GrSelfForce::Events::ObserveFluxHorizon<
+                    amr::Tags::IsFinestGrid>,
                 GrSelfForce::Events::ObserveRedshift<
                     amr::Tags::IsFinestGrid>,
                 GrSelfForce::Events::ObserveSecondOrderFlux<

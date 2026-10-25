@@ -13,7 +13,7 @@ ExpectedOutput:
 Background: &background
   CircularOrbit:
     BlackHoleMass: &bh_mass 1.
-    BlackHoleSpin: &bh_spin 0.6
+    BlackHoleSpin: &bh_spin 0.0
     OrbitalRadius: &orbital_radius 8.
     MModeNumber: &m_mode_number 2
     HyperboloidalSlicingTransitions: 
@@ -60,7 +60,7 @@ DomainCreator:
   AlignedLattice:
     # Order of dimensions is (r, cos(theta))
     BlockBounds:
-      - - 1.8
+      - - 2.0
         - *v_to_t_transition
         - 6.
         - &worldtube_right 10.
@@ -216,6 +216,7 @@ EventsAndTriggersAtIterations:
   - Trigger: Always
     Events:
       - ObserveFlux
+      - ObserveFluxHorizon
       - ObserveRedshift
       - ObserveFields:
           SubfileName: VolumeData
